@@ -88,6 +88,32 @@ export default async function ConfiguracoesPage() {
         </span>
       </Link>
 
+      <Link
+        href="/configuracoes/exportar"
+        className="flex items-center justify-between rounded-2xl border bg-card px-4 py-4 font-bold outline-none hover:border-primary focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <span>
+          Exportar e backup
+          <span className="block text-sm font-normal text-muted-foreground">Planilhas do Excel com todos os dados</span>
+        </span>
+        <span aria-hidden className="text-primary">
+          →
+        </span>
+      </Link>
+
+      <Link
+        href="/configuracoes/historico"
+        className="flex items-center justify-between rounded-2xl border bg-card px-4 py-4 font-bold outline-none hover:border-primary focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <span>
+          Histórico de alterações
+          <span className="block text-sm font-normal text-muted-foreground">Quem criou, alterou ou apagou o quê</span>
+        </span>
+        <span aria-hidden className="text-primary">
+          →
+        </span>
+      </Link>
+
       {config && perfil && perfil.papel !== "admin" && (
         <p className="text-muted-foreground">Só o dono pode alterar as configurações.</p>
       )}

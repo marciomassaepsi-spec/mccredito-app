@@ -12,9 +12,9 @@ cobrança e calculadora de juros. Funciona no navegador e pode ser instalado no 
 | 3 | Calculadora de juros (7 modos), com testes | Pronta |
 | 4 | Clientes e empréstimos, com parcelas geradas sozinhas; Configurações editáveis | Pronta |
 | 5 | Pagamentos, quitação, renegociação e contratos (upload e PDF) | Pronta |
-| 6 | Cobrança: tela do dia, WhatsApp com mensagem pronta, chave PIX, régua, promessas e visitas | **Pronta** |
-| 7 | Painel, exportação, backup e auditoria | Próxima |
-| 8 | Revisão de segurança e publicação | |
+| 6 | Cobrança: tela do dia, WhatsApp com mensagem pronta, chave PIX, régua, promessas e visitas | Pronta |
+| 7 | Painel, exportação, backup e histórico de alterações | **Pronta** |
+| 8 | Revisão de segurança e publicação | Próxima |
 
 ## Como colocar no ar
 
@@ -133,9 +133,11 @@ select id, 'admin' from auth.users where email = 'seu@email.com';
 acesso. Basta abrir o painel do Supabase e clicar em **Restore**. Usando o app toda semana, isso
 não acontece.
 
-**Backup.** O plano gratuito não guarda cópias que você possa baixar. Na fase 7 o app ganha um
-botão **Fazer backup** que baixa tudo numa planilha. Até lá, dá para exportar cada tabela em
-**Table Editor → Export → CSV**.
+**Backup.** O plano gratuito do Supabase não guarda cópias que você possa baixar. Em
+**Configurações → Exportar e backup**, o botão **Baixar backup** gera uma planilha do Excel com
+clientes, empréstimos, parcelas, pagamentos e contatos. Faça isso toda semana e guarde o arquivo num
+lugar seguro, como o Google Drive. O arquivo tem CPF e endereço dos clientes: não envie para outras
+pessoas.
 
 ---
 
@@ -165,6 +167,12 @@ npm run typecheck && npm run lint
 - `src/lib/contrato.ts` + `contrato-pdf.ts` modelo com `{{variaveis}}` e geração do PDF (pdf-lib).
 - Arquivos ficam no bucket privado `documentos`; fotos são reduzidas no navegador antes do envio
   (limite de 4,5 MB da Vercel) e abertas por `/arquivos/...`, que gera um link assinado de 2 minutos.
+- `src/lib/painel.ts` indicadores do painel (carteira, atraso por faixa, recebido × previsto por
+  mês, juros recebidos). `src/components/app/graficos.tsx` desenha os gráficos em HTML, com legenda,
+  dica ao tocar e tabela com os números.
+- `/exportar/[tabela]` gera CSV para Excel (`;`, vírgula decimal, BOM) e `/exportar/backup` a
+  planilha `.xlsx` (exceljs). Só o dono exporta.
+- `src/lib/auditoria.ts` transforma as linhas da tabela `auditoria` em frases para o histórico.
 - `src/lib/cobranca.ts` fila de cobrança, escolha da mensagem da régua por dias de atraso, variáveis
   das mensagens e horário de cobrança no fuso de São Paulo.
 - Formulários usam `useAcaoSemReset` (`src/components/app/form.tsx`): com `<form action>` o React
