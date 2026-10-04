@@ -44,9 +44,10 @@ export type Database = {
       };
       clientes: {
         Row: {
+          anonimizado_em: string | null;
           atualizado_em: string;
           consentimento_lgpd_em: string | null;
-          cpf: string;
+          cpf: string | null;
           criado_em: string;
           endereco: string;
           foto_documento_path: string | null;
@@ -56,9 +57,10 @@ export type Database = {
           whatsapp: string;
         };
         Insert: {
+          anonimizado_em?: string | null;
           atualizado_em?: string;
           consentimento_lgpd_em?: string | null;
-          cpf: string;
+          cpf?: string | null;
           criado_em?: string;
           endereco?: string;
           foto_documento_path?: string | null;
@@ -68,9 +70,10 @@ export type Database = {
           whatsapp?: string;
         };
         Update: {
+          anonimizado_em?: string | null;
           atualizado_em?: string;
           consentimento_lgpd_em?: string | null;
-          cpf?: string;
+          cpf?: string | null;
           criado_em?: string;
           endereco?: string;
           foto_documento_path?: string | null;
@@ -489,6 +492,7 @@ export type Database = {
         Args: { p_motivo: string; p_pagamento: string };
         Returns: undefined;
       };
+      excluir_dados_cliente: { Args: { p_cliente: string }; Returns: string };
       gen_random_uuid: { Args: Record<PropertyKey, never>; Returns: string };
       gen_salt: { Args: { "": string }; Returns: string };
       papel_atual: {

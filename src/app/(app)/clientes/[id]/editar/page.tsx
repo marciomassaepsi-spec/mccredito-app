@@ -13,10 +13,17 @@ export default async function EditarClientePage({ params }: PageProps<"/clientes
   const { supabase } = await requireUser();
   const { data: c } = await supabase
     .from("clientes")
-    .select("id, nome, cpf, whatsapp, endereco, observacoes, consentimento_lgpd_em")
+    .select("id, nome, cpf, whatsapp, endereco, observacoes, consentimento_lgpd_em, anonimizado_em")
     .eq("id", id)
     .maybeSingle();
   if (!c) notFound();
+  if (c.anonimizado_em) {
+    return (
+      <p className="rounded-2xl border border-dashed bg-card px-4 py-8 text-center text-muted-foreground">
+        Os dados pessoais deste cliente foram excluídos a pedido dele (LGPD) e não podem ser editados.
+      </p>
+    );
+  }
 
   return (
     <div className="grid gap-5">

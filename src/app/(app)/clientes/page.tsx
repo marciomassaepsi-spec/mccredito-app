@@ -16,7 +16,7 @@ function limparBusca(texto: string) {
 }
 
 export default async function ClientesPage({ searchParams }: PageProps<"/clientes">) {
-  const { q } = await searchParams;
+  const { q, ok } = await searchParams;
   const busca = limparBusca(typeof q === "string" ? q : "");
   const { supabase } = await requireUser();
 
@@ -41,6 +41,11 @@ export default async function ClientesPage({ searchParams }: PageProps<"/cliente
 
   return (
     <div className="grid gap-5">
+      {ok === "excluido" && (
+        <p role="status" className="rounded-xl bg-secondary px-4 py-3 font-semibold text-secondary-foreground">
+          Cadastro e arquivos do cliente excluídos.
+        </p>
+      )}
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-3xl font-black italic text-brand-deep">Clientes</h1>
         <Link href="/clientes/novo" className={buttonVariants({ className: "h-11 px-4 font-bold" })}>

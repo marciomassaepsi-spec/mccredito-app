@@ -13,8 +13,10 @@ cobrança e calculadora de juros. Funciona no navegador e pode ser instalado no 
 | 4 | Clientes e empréstimos, com parcelas geradas sozinhas; Configurações editáveis | Pronta |
 | 5 | Pagamentos, quitação, renegociação e contratos (upload e PDF) | Pronta |
 | 6 | Cobrança: tela do dia, WhatsApp com mensagem pronta, chave PIX, régua, promessas e visitas | Pronta |
-| 7 | Painel, exportação, backup e histórico de alterações | **Pronta** |
-| 8 | Revisão de segurança e publicação | Próxima |
+| 7 | Painel, exportação, backup e histórico de alterações | Pronta |
+| 8 | Revisão de segurança, direitos do cliente (LGPD) e roteiro de testes | **Pronta** |
+
+Depois de publicar, siga o [roteiro de testes](docs/roteiro-de-testes.md) (uns 20 minutos).
 
 ## Como colocar no ar
 
@@ -33,6 +35,7 @@ MC Créditos (até 150 contratos ativos).
    1. [`20261004120000_schema_inicial.sql`](supabase/migrations/20261004120000_schema_inicial.sql)
    2. [`20261005120000_emprestimos.sql`](supabase/migrations/20261005120000_emprestimos.sql)
    3. [`20261006120000_pagamentos.sql`](supabase/migrations/20261006120000_pagamentos.sql)
+   4. [`20261008120000_seguranca_lgpd.sql`](supabase/migrations/20261008120000_seguranca_lgpd.sql)
 
    Para cada um: abra aqui no GitHub, copie todo o conteúdo, cole no SQL Editor (em uma aba nova,
    **New query**) e clique em **Run**. Deve aparecer "Success. No rows returned".
@@ -103,6 +106,39 @@ e os seus dados das Configurações. O texto pode ser alterado em **Configuraç�
 contrato**. O modelo que vem pronto é um ponto de partida: **peça para um advogado revisar antes de
 usar com clientes**.
 
+## Dados dos clientes (LGPD)
+
+- O cadastro só é salvo com a autorização do cliente marcada.
+- Nas listas, o CPF aparece mascarado (`***.982.247-**`); completo só na ficha.
+- Na ficha do cliente, em **Dados pessoais (LGPD)**:
+  - **Baixar os dados deste cliente** gera um arquivo com tudo o que existe sobre ele, para entregar
+    quando ele pedir.
+  - **Excluir dados pessoais** apaga nome, CPF, telefone, endereço, observações e arquivos. Se ele
+    nunca teve empréstimo, o cadastro some. Se teve, os valores dos empréstimos e pagamentos ficam,
+    sem identificação, porque a lei permite guardar o que é necessário para obrigações legais.
+    Com empréstimo ativo, não dá para excluir.
+- Os dados pessoais também saem do histórico de alterações quando são excluídos.
+
+## Segurança
+
+- Ninguém vê nada sem login. O banco confere quem está pedindo em cada consulta (Row Level
+  Security), então mesmo alguém com as chaves públicas do projeto não lê nenhum dado.
+- Só o dono apaga registros, cancela empréstimos, exporta dados e vê o histórico.
+- Pagamentos não podem ser apagados nem alterados; um erro se corrige com estorno e motivo.
+- Contratos, comprovantes e documentos ficam num armazenamento privado e abrem por um link que
+  expira em 2 minutos.
+- Toda criação, alteração ou exclusão fica registrada em **Configurações → Histórico de alterações**.
+- O app não pode ser aberto dentro de outro site e pede aos buscadores para não ser indexado.
+
+## O que o app não faz (por decisão ou para uma próxima etapa)
+
+- **Não envia mensagens sozinho.** O botão de WhatsApp abre a conversa com o texto pronto; quem
+  envia é você. Envio automático exige a API paga do WhatsApp Business.
+- **Não gera PIX copia-e-cola.** As mensagens usam a chave PIX da conta, como você pediu.
+- **Um usuário só.** O banco já está pronto para operador e cobrador, mas ainda não há tela para
+  cadastrar outros usuários.
+- **Precisa de internet.** Sem conexão, o app não abre.
+
 ## Dados de exemplo (opcional)
 
 Para experimentar o app antes de cadastrar clientes de verdade, rode
@@ -132,6 +168,9 @@ select id, 'admin' from auth.users where email = 'seu@email.com';
 **O Supabase pausou o projeto.** No plano gratuito, o projeto pausa depois de 7 dias sem nenhum
 acesso. Basta abrir o painel do Supabase e clicar em **Restore**. Usando o app toda semana, isso
 não acontece.
+
+**Saiu uma atualização do app com arquivo de banco novo.** Rode só o arquivo novo da pasta
+`supabase/migrations` no SQL Editor, antes ou logo depois de a Vercel publicar a versão nova.
 
 **Backup.** O plano gratuito do Supabase não guarda cópias que você possa baixar. Em
 **Configurações → Exportar e backup**, o botão **Baixar backup** gera uma planilha do Excel com
@@ -178,6 +217,9 @@ npm run typecheck && npm run lint
 - Formulários usam `useAcaoSemReset` (`src/components/app/form.tsx`): com `<form action>` o React
   limpa o formulário depois de cada envio, e listas de seleção controladas ficavam com um valor na tela
   e outro no estado.
+- `excluir_dados_cliente` (migration de LGPD) apaga ou anonimiza o titular e limpa os dados pessoais
+  da auditoria; `/clientes/[id]/dados` exporta os dados do titular em JSON.
+- `next.config.ts` define cabeçalhos de segurança; `src/app/robots.ts` bloqueia indexação.
 - `npm run db:seed:gerar` regenera `supabase/seed.sql` a partir de `scripts/gerar-seed.ts`.
 - `src/lib/format.ts` dinheiro (sempre centavos inteiros), datas no fuso `America/Sao_Paulo` e CPF.
 - `supabase/migrations/` esquema versionado. Tudo tem Row Level Security: só membros ativos de

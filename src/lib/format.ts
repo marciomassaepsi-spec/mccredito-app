@@ -67,7 +67,8 @@ export function formatDataExtenso(agora: Date = new Date()): string {
 }
 
 /** "123.456.789-09" ou "12345678909" → "***.456.789-**" (CPF mascarado nas listas) */
-export function mascararCPF(cpf: string): string {
+export function mascararCPF(cpf: string | null): string {
+  if (!cpf) return "sem CPF";
   const d = cpf.replace(/\D/g, "");
   if (d.length !== 11) return cpf;
   return `***.${d.slice(3, 6)}.${d.slice(6, 9)}-**`;
@@ -125,7 +126,8 @@ export function cnpjValido(cnpj: string): boolean {
 }
 
 /** "52998224725" → "529.982.247-25" (ficha completa; nas listas use mascararCPF) */
-export function formatCPF(cpf: string): string {
+export function formatCPF(cpf: string | null): string {
+  if (!cpf) return "";
   const d = cpf.replace(/\D/g, "");
   if (d.length !== 11) return cpf;
   return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;

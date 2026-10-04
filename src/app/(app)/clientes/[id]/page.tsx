@@ -11,18 +11,21 @@ import { calcularPontualidade, NOME_SISTEMA, resumirParcelas } from "@/lib/empre
 import { formatCentavos, formatCPF, formatData, formatPercentual, formatTelefone, hojeISO, linkWhatsApp } from "@/lib/format";
 import { requireUser } from "@/lib/supabase/server";
 
+import { SecaoLGPD } from "./lgpd";
+
 export const metadata: Metadata = { title: "Cliente" };
 
 const NOME_STATUS = { ativo: "Ativo", quitado: "Quitado", em_atraso: "Em atraso", renegociado: "Renegociado", cancelado: "Cancelado" } as const;
 
-export default async function ClientePage({ params }: PageProps<"/clientes/[id]">) {
+export default async function ClientePage({ params, searchParams }: PageProps<"/clientes/[id]">) {
   const { id } = await params;
+  const { ok } = await searchParams;
   const { supabase } = await requireUser();
   const { data: perfil } = await supabase.from("perfis").select("papel").maybeSingle();
   const { data: c } = await supabase
     .from("clientes")
     .select(
-      "id, nome, cpf, whatsapp, endereco, observacoes, criado_em, contatos_cobranca(id, tipo, resultado, promessa_para, observacoes, criado_em), documentos(id, tipo, nome_arquivo, caminho, criado_em), emprestimos(id, valor_centavos, taxa_percentual, sistema, qtd_parcelas, liberado_em, status, parcelas(numero, vencimento, valor_centavos, pago_centavos, status, quitada_em))",
+      "id, nome, cpf, whatsapp, endereco, observacoes, criado_em, anonimizado_em, contatos_cobranca(id, tipo, resultado, promessa_para, observacoes, criado_em), documentos(id, tipo, nome_arquivo, caminho, criado_em), emprestimos(id, valor_centavos, taxa_percentual, sistema, qtd_parcelas, liberado_em, status, parcelas(numero, vencimento, valor_centavos, pago_centavos, status, quitada_em))",
     )
     .eq("id", id)
     .order("liberado_em", { referencedTable: "emprestimos", ascending: false })
@@ -37,15 +40,27 @@ export default async function ClientePage({ params }: PageProps<"/clientes/[id]"
   const pontualidade = calcularPontualidade(c.emprestimos.flatMap((e) => e.parcelas), hoje);
   const whatsapp = c.whatsapp ? linkWhatsApp(c.whatsapp) : null;
 
+  const admin = perfil?.papel === "admin";
+
   return (
     <div className="grid gap-5">
+      {ok === "anonimizado" && (
+        <p role="status" className="rounded-xl bg-secondary px-4 py-3 font-semibold text-secondary-foreground">
+          Dados pessoais excluídos. Os valores dos empréstimos continuam no histórico, sem identificação.
+        </p>
+      )}
+      {c.anonimizado_em && ok !== "anonimizado" && (
+        <p className="rounded-xl bg-muted px-4 py-3 text-sm font-semibold text-muted-foreground">
+          Os dados pessoais deste cliente foram excluídos a pedido dele (LGPD).
+        </p>
+      )}
       <section className="grid gap-2">
         <Link href="/clientes" className="text-sm font-bold text-primary">
           ← Clientes
         </Link>
         <h1 className="text-3xl font-black italic break-words text-brand-deep">{c.nome}</h1>
         <p className="num text-muted-foreground">
-          CPF {formatCPF(c.cpf)}
+          {c.cpf ? `CPF ${formatCPF(c.cpf)}` : "Sem CPF"}
           {c.whatsapp && ` · ${formatTelefone(c.whatsapp)}`}
         </p>
       </section>
@@ -139,7 +154,9 @@ export default async function ClientePage({ params }: PageProps<"/clientes/[id]"
         )}
       </section>
 
-      <Documentos documentos={c.documentos} clienteId={c.id} podeApagar={perfil?.papel === "admin"} voltar={`/clientes/${c.id}`} />
+      {!c.anonimizado_em && (
+        <Documentos documentos={c.documentos} clienteId={c.id} podeApagar={admin} voltar={`/clientes/${c.id}`} />
+      )}
 
       <section className="grid gap-2">
         <h2 className="text-lg font-extrabold">Empréstimos</h2>
@@ -177,6 +194,9 @@ export default async function ClientePage({ params }: PageProps<"/clientes/[id]"
           })}
         </ul>
       </section>
+      {admin && !c.anonimizado_em && (
+        <SecaoLGPD clienteId={c.id} temAtivo={ativos.length > 0} temHistorico={c.emprestimos.length > 0} />
+      )}
     </div>
   );
 }

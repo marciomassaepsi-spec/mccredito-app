@@ -38,7 +38,7 @@ export async function carregarDadosContrato(
         tipoChavePix: config.tipo_chave_pix,
         chavePix: config.chave_pix,
       },
-      cliente: { nome: e.clientes.nome, cpf: e.clientes.cpf, endereco: e.clientes.endereco },
+      cliente: { nome: e.clientes.nome, cpf: e.clientes.cpf ?? "", endereco: e.clientes.endereco },
       emprestimo: {
         valorCentavos: e.valor_centavos,
         taxaPercentual: Number(e.taxa_percentual),
