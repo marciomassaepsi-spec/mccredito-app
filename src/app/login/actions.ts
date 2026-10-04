@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { mensagemErroLogin } from "@/lib/login";
 import { createClient } from "@/lib/supabase/server";
 
 const loginSchema = z.object({
@@ -26,11 +27,11 @@ export async function entrar(_anterior: LoginState, formData: FormData): Promise
   });
 
   if (error) {
-    const erro =
-      error.code === "invalid_credentials"
-        ? "E-mail ou senha incorretos."
-        : "Não foi possível entrar agora. Confira sua internet e tente de novo.";
-    return { erro, email };
+    if (error.code !== "invalid_credentials") {
+      // Aparece em Vercel → Logs, para descobrir o motivo
+      console.error("Falha no login:", error.name, error.code, error.status, error.message);
+    }
+    return { erro: mensagemErroLogin(error), email };
   }
 
   redirect("/");
