@@ -1,13 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  centavosParaTexto,
   cpfValido,
   formatCentavos,
   formatData,
   formatDataExtenso,
+  formatPercentual,
   hojeISO,
   mascararCPF,
+  parsePercentual,
   parseReaisParaCentavos,
+  percentualParaTexto,
 } from "./format";
 
 describe("formatCentavos", () => {
@@ -71,5 +75,25 @@ describe("CPF", () => {
 
   it("mascara nas listagens", () => {
     expect(mascararCPF("52998224725")).toBe("***.982.247-**");
+  });
+});
+
+describe("percentuais", () => {
+  it("lê taxas digitadas", () => {
+    expect(parsePercentual("9,99")).toBeCloseTo(0.0999, 10);
+    expect(parsePercentual("9.99%")).toBeCloseTo(0.0999, 10);
+    expect(parsePercentual("10")).toBe(0.1);
+    expect(parsePercentual("0,5")).toBe(0.005);
+    expect(parsePercentual("")).toBeNull();
+    expect(parsePercentual("abc")).toBeNull();
+    expect(parsePercentual("-2")).toBeNull();
+  });
+
+  it("formata taxas", () => {
+    expect(formatPercentual(0.0999)).toBe("9,99%");
+    expect(formatPercentual(0.1)).toBe("10%");
+    expect(formatPercentual(2.138428)).toBe("213,84%");
+    expect(percentualParaTexto(0.0999)).toBe("9,99");
+    expect(centavosParaTexto(150000)).toBe("1.500,00");
   });
 });

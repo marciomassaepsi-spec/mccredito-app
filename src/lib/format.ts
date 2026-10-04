@@ -85,3 +85,28 @@ export function cpfValido(cpf: string): boolean {
   };
   return digito(d.slice(0, 9)) === Number(d[9]) && digito(d.slice(0, 10)) === Number(d[10]);
 }
+
+/** "9,99", "9.99" ou "9,99%" → 0.0999. Devolve null quando não é um número. */
+export function parsePercentual(texto: string): number | null {
+  const limpo = texto.replace(/%|\s/g, "").replace(",", ".");
+  if (!/^\d+(\.\d{1,4})?$/.test(limpo)) return null;
+  return Number(limpo) / 100;
+}
+
+/** 0.0999 → "9,99%". Até `casas` casas decimais, sem zeros sobrando. */
+export function formatPercentual(taxa: number, casas = 2): string {
+  return `${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: casas }).format(taxa * 100)}%`;
+}
+
+/** 0.0999 → "9,99" (para preencher campos) */
+export function percentualParaTexto(taxa: number, casas = 2): string {
+  return new Intl.NumberFormat("pt-BR", {
+    maximumFractionDigits: casas,
+    useGrouping: false,
+  }).format(taxa * 100);
+}
+
+/** 137764 → "1.377,64" (para preencher campos de dinheiro) */
+export function centavosParaTexto(centavos: number): string {
+  return new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2 }).format(centavos / 100);
+}

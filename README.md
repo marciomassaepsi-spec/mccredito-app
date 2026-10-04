@@ -8,9 +8,9 @@ cobrança e calculadora de juros. Funciona no navegador e pode ser instalado no 
 | Fase | O que entrega | Situação |
 | ---- | ------------- | -------- |
 | 1 | Plano, identidade visual e telas de exemplo | Aprovada |
-| 2 | Base: login, layout com o logo, banco de dados e segurança | **Pronta** |
-| 3 | Calculadora de juros (7 modos), com testes | Próxima |
-| 4 | Clientes e empréstimos, com parcelas geradas sozinhas | |
+| 2 | Base: login, layout com o logo, banco de dados e segurança | Pronta |
+| 3 | Calculadora de juros (7 modos), com testes | **Pronta** |
+| 4 | Clientes e empréstimos, com parcelas geradas sozinhas | Próxima |
 | 5 | Pagamentos e contratos (upload e PDF) | |
 | 6 | Cobrança: tela do dia, WhatsApp, PIX, régua e histórico | |
 | 7 | Painel, exportação, backup e auditoria | |
@@ -109,6 +109,9 @@ npm run typecheck && npm run lint
 
 - `src/app/(app)/` telas que exigem login · `src/app/login/` entrada · `src/proxy.ts` renova a
   sessão e redireciona quem não está logado.
+- `src/lib/finance/` cálculos financeiros como funções puras (Price, SAC, juros simples e compostos,
+  taxa reversa, CET, multa e mora, quitação antecipada, datas de vencimento), com testes que
+  conferem valores calculados à mão em `finance.test.ts`.
 - `src/lib/format.ts` dinheiro (sempre centavos inteiros), datas no fuso `America/Sao_Paulo` e CPF.
 - `supabase/migrations/` esquema versionado. Tudo tem Row Level Security: só membros ativos de
   `perfis` leem dados, só admin apaga, pagamentos nunca são apagados (só estornados com motivo) e
