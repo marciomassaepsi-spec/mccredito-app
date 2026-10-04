@@ -1,0 +1,156 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-nunito-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
+  --color-brand-deep: var(--brand-deep);
+  --color-gold: var(--gold);
+  --color-gold-ink: var(--gold-ink);
+  --color-late: var(--late);
+  --color-late-soft: var(--late-soft);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* Cores da marca MC Créditos, tiradas do logo:
+   verde de "Créditos" = principal, dourado do "MC" = destaque, tijolo = atraso. */
+:root {
+  --background: #f3f6f4;
+  --foreground: #14211b;
+  --card: #ffffff;
+  --card-foreground: #14211b;
+  --popover: #ffffff;
+  --popover-foreground: #14211b;
+  --primary: #1f7f5c;
+  --primary-foreground: #ffffff;
+  --secondary: #e3f1ea;
+  --secondary-foreground: #145a41;
+  --muted: #ebf0ed;
+  --muted-foreground: #5f6f66;
+  --accent: #f7f0cf;
+  --accent-foreground: #6e5a06;
+  --destructive: #b83a14;
+  --border: #dce5df;
+  --input: #cfdad3;
+  --ring: #1f7f5c;
+  --brand-deep: #145a41;
+  --gold: #c9a514;
+  --gold-ink: #7a6408;
+  --late: #b83a14;
+  --late-soft: #fbe1d6;
+  --chart-1: #1f7f5c;
+  --chart-2: #c9a514;
+  --chart-3: #145a41;
+  --chart-4: #b83a14;
+  --chart-5: #5f6f66;
+  --radius: 0.875rem;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #14211b;
+  --sidebar-primary: #1f7f5c;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e3f1ea;
+  --sidebar-accent-foreground: #145a41;
+  --sidebar-border: #dce5df;
+  --sidebar-ring: #1f7f5c;
+}
+
+.dark {
+  --background: #0f1613;
+  --foreground: #e5eee9;
+  --card: #16211c;
+  --card-foreground: #e5eee9;
+  --popover: #16211c;
+  --popover-foreground: #e5eee9;
+  --primary: #45b48a;
+  --primary-foreground: #0f1613;
+  --secondary: #1c3329;
+  --secondary-foreground: #7fd1af;
+  --muted: #1c2823;
+  --muted-foreground: #9db0a6;
+  --accent: #332c12;
+  --accent-foreground: #e9cf6a;
+  --destructive: #f08a66;
+  --border: #2a3a32;
+  --input: #34463d;
+  --ring: #45b48a;
+  --brand-deep: #7fd1af;
+  --gold: #e2c34a;
+  --gold-ink: #e9cf6a;
+  --late: #f08a66;
+  --late-soft: #3a1f15;
+  --chart-1: #45b48a;
+  --chart-2: #e2c34a;
+  --chart-3: #7fd1af;
+  --chart-4: #f08a66;
+  --chart-5: #9db0a6;
+  --sidebar: #16211c;
+  --sidebar-foreground: #e5eee9;
+  --sidebar-primary: #45b48a;
+  --sidebar-primary-foreground: #0f1613;
+  --sidebar-accent: #1c3329;
+  --sidebar-accent-foreground: #7fd1af;
+  --sidebar-border: #2a3a32;
+  --sidebar-ring: #45b48a;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  button:not(:disabled), [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  html {
+    @apply font-sans;
+  }
+  h1, h2, h3 {
+    @apply font-heading;
+    text-wrap: balance;
+  }
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+}
