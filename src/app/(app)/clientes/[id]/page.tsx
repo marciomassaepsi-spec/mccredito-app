@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { Documentos } from "@/components/app/documentos";
 import { Selo } from "@/components/app/selo";
 import { buttonVariants } from "@/components/ui/button";
 import { calcularPontualidade, NOME_SISTEMA, resumirParcelas } from "@/lib/emprestimos";
@@ -16,13 +17,15 @@ const NOME_STATUS = { ativo: "Ativo", quitado: "Quitado", em_atraso: "Em atraso"
 export default async function ClientePage({ params }: PageProps<"/clientes/[id]">) {
   const { id } = await params;
   const { supabase } = await requireUser();
+  const { data: perfil } = await supabase.from("perfis").select("papel").maybeSingle();
   const { data: c } = await supabase
     .from("clientes")
     .select(
-      "id, nome, cpf, whatsapp, endereco, observacoes, criado_em, emprestimos(id, valor_centavos, taxa_percentual, sistema, qtd_parcelas, liberado_em, status, parcelas(numero, vencimento, valor_centavos, pago_centavos, status, quitada_em))",
+      "id, nome, cpf, whatsapp, endereco, observacoes, criado_em, documentos(id, tipo, nome_arquivo, caminho, criado_em), emprestimos(id, valor_centavos, taxa_percentual, sistema, qtd_parcelas, liberado_em, status, parcelas(numero, vencimento, valor_centavos, pago_centavos, status, quitada_em))",
     )
     .eq("id", id)
     .order("liberado_em", { referencedTable: "emprestimos", ascending: false })
+    .order("criado_em", { referencedTable: "documentos", ascending: false })
     .maybeSingle();
   if (!c) notFound();
 
@@ -111,6 +114,8 @@ export default async function ClientePage({ params }: PageProps<"/clientes/[id]"
           {c.observacoes && <p className="text-sm whitespace-pre-line text-muted-foreground">{c.observacoes}</p>}
         </section>
       )}
+
+      <Documentos documentos={c.documentos} clienteId={c.id} podeApagar={perfil?.papel === "admin"} voltar={`/clientes/${c.id}`} />
 
       <section className="grid gap-2">
         <h2 className="text-lg font-extrabold">Empréstimos</h2>

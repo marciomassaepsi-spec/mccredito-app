@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { formatCPF } from "@/lib/format";
 import { exibirChavePix } from "@/lib/pix";
@@ -60,6 +61,19 @@ export default async function ConfiguracoesPage() {
           }}
         />
       )}
+
+      <Link
+        href="/configuracoes/contrato"
+        className="flex items-center justify-between rounded-2xl border bg-card px-4 py-4 font-bold outline-none hover:border-primary focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <span>
+          Modelo de contrato
+          <span className="block text-sm font-normal text-muted-foreground">Texto usado no PDF de cada empréstimo</span>
+        </span>
+        <span aria-hidden className="text-primary">
+          →
+        </span>
+      </Link>
 
       {config && perfil && perfil.papel !== "admin" && (
         <p className="text-muted-foreground">Só o dono pode alterar as configurações.</p>

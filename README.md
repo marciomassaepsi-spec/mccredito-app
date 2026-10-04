@@ -10,9 +10,9 @@ cobrança e calculadora de juros. Funciona no navegador e pode ser instalado no 
 | 1 | Plano, identidade visual e telas de exemplo | Aprovada |
 | 2 | Base: login, layout com o logo, banco de dados e segurança | Pronta |
 | 3 | Calculadora de juros (7 modos), com testes | Pronta |
-| 4 | Clientes e empréstimos, com parcelas geradas sozinhas; Configurações editáveis | **Pronta** |
-| 5 | Pagamentos, quitação, renegociação e contratos (upload e PDF) | Próxima |
-| 6 | Cobrança: tela do dia, WhatsApp, PIX, régua e histórico | |
+| 4 | Clientes e empréstimos, com parcelas geradas sozinhas; Configurações editáveis | Pronta |
+| 5 | Pagamentos, quitação, renegociação e contratos (upload e PDF) | **Pronta** |
+| 6 | Cobrança: tela do dia, WhatsApp, PIX, régua e histórico | Próxima |
 | 7 | Painel, exportação, backup e auditoria | |
 | 8 | Revisão de segurança e publicação | |
 
@@ -32,6 +32,7 @@ MC Créditos (até 150 contratos ativos).
    ordem** (a data no começo do nome diz a ordem):
    1. [`20261004120000_schema_inicial.sql`](supabase/migrations/20261004120000_schema_inicial.sql)
    2. [`20261005120000_emprestimos.sql`](supabase/migrations/20261005120000_emprestimos.sql)
+   3. [`20261006120000_pagamentos.sql`](supabase/migrations/20261006120000_pagamentos.sql)
 
    Para cada um: abra aqui no GitHub, copie todo o conteúdo, cole no SQL Editor (em uma aba nova,
    **New query**) e clique em **Run**. Deve aparecer "Success. No rows returned".
@@ -79,6 +80,13 @@ que for, ex. `(71) 91234-5678`: o app guarda no formato que o PIX exige.
   **Adicionar à tela inicial**.
 - **iPhone (Safari):** abra o endereço, toque em **Compartilhar** e em
   **Adicionar à Tela de Início**.
+
+## Contrato
+
+Cada empréstimo tem o botão **Abrir PDF**, que gera o contrato com os dados do cliente, as parcelas
+e os seus dados das Configurações. O texto pode ser alterado em **Configurações → Modelo de
+contrato**. O modelo que vem pronto é um ponto de partida: **peça para um advogado revisar antes de
+usar com clientes**.
 
 ## Dados de exemplo (opcional)
 
@@ -136,6 +144,12 @@ npm run typecheck && npm run lint
 - `src/lib/emprestimos.ts` monta o cronograma com datas e calcula situação das parcelas e
   pontualidade. O cronograma é sempre recalculado no servidor e gravado pela função
   `criar_emprestimo`, que confere a soma das amortizações e o limite de contratos numa transação.
+- `src/lib/pagamentos.ts` multa e mora na data, divisão do recebimento (encargos primeiro) e plano
+  de quitação. As funções `registrar_pagamento`, `estornar_pagamento`, `quitar_emprestimo` e
+  `renegociar_emprestimo` gravam tudo numa transação e recalculam parcela e empréstimo.
+- `src/lib/contrato.ts` + `contrato-pdf.ts` modelo com `{{variaveis}}` e geração do PDF (pdf-lib).
+- Arquivos ficam no bucket privado `documentos`; fotos são reduzidas no navegador antes do envio
+  (limite de 4,5 MB da Vercel) e abertas por `/arquivos/...`, que gera um link assinado de 2 minutos.
 - `npm run db:seed:gerar` regenera `supabase/seed.sql` a partir de `scripts/gerar-seed.ts`.
 - `src/lib/format.ts` dinheiro (sempre centavos inteiros), datas no fuso `America/Sao_Paulo` e CPF.
 - `supabase/migrations/` esquema versionado. Tudo tem Row Level Security: só membros ativos de

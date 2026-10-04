@@ -76,24 +76,24 @@ export function situacaoParcela(p: ParcelaGravada, hoje: string): SituacaoParcel
   return { situacao: "a_vencer", diasAtraso: 0, emAbertoCentavos: emAberto };
 }
 
-export type ResumoEmprestimo = {
+export type ResumoEmprestimo<T extends ParcelaGravada = ParcelaGravada> = {
   pagas: number;
   total: number;
   atrasadas: number;
   maiorAtrasoDias: number;
   emAbertoCentavos: number;
   atrasadoCentavos: number;
-  proxima: (ParcelaGravada & SituacaoParcela) | null;
+  proxima: (T & SituacaoParcela) | null;
 };
 
-export function resumirParcelas(parcelas: ParcelaGravada[], hoje: string): ResumoEmprestimo {
+export function resumirParcelas<T extends ParcelaGravada>(parcelas: T[], hoje: string): ResumoEmprestimo<T> {
   const ordenadas = [...parcelas].sort((a, b) => a.numero - b.numero);
   let pagas = 0;
   let atrasadas = 0;
   let maiorAtrasoDias = 0;
   let emAberto = 0;
   let atrasado = 0;
-  let proxima: ResumoEmprestimo["proxima"] = null;
+  let proxima: ResumoEmprestimo<T>["proxima"] = null;
 
   for (const p of ordenadas) {
     const s = situacaoParcela(p, hoje);

@@ -36,6 +36,12 @@ export function mensagemDoBanco(erro: { code?: string; message?: string } | null
   if (msg.startsWith("SEM_PERMISSAO")) return "Só o dono pode fazer isso.";
   if (msg.startsWith("MOTIVO_OBRIGATORIO")) return "Informe o motivo.";
   if (msg.startsWith("NAO_ENCONTRADO")) return "Não encontrado, ou já não está ativo.";
+  if (msg.startsWith("PARCELA_FECHADA")) return "Esta parcela já está paga ou cancelada. Atualize a tela.";
+  if (msg.startsWith("VALOR_ACIMA")) return "O valor passa do que falta nesta parcela. Atualize a tela e confira.";
+  if (msg.startsWith("VALOR_INVALIDO")) return "Valor inválido.";
+  if (msg.startsWith("EMPRESTIMO_INATIVO")) return "Este empréstimo não está mais ativo.";
+  if (msg.startsWith("QUITACAO_INCOMPLETA")) return "As parcelas mudaram enquanto você conferia. Atualize a tela e tente de novo.";
+  if (msg.startsWith("CRONOGRAMA_INVALIDO")) return "As parcelas calculadas não conferem. Revise os valores.";
   if (erro.code === "42501") return "Seu usuário não tem permissão para isso.";
   if (erro.code === "23503") return "Não dá para apagar: há registros ligados a este.";
   return "Não foi possível salvar agora. Confira sua internet e tente de novo.";

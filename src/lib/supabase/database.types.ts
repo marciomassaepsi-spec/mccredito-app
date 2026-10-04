@@ -91,6 +91,7 @@ export type Database = {
           documento_empresa: string;
           id: boolean;
           limite_contratos_ativos: number;
+          modelo_contrato: string;
           mora_limite_aviso: number;
           mora_percentual_mes: number;
           multa_limite_aviso: number;
@@ -109,6 +110,7 @@ export type Database = {
           documento_empresa?: string;
           id?: boolean;
           limite_contratos_ativos?: number;
+          modelo_contrato?: string;
           mora_limite_aviso?: number;
           mora_percentual_mes?: number;
           multa_limite_aviso?: number;
@@ -127,6 +129,7 @@ export type Database = {
           documento_empresa?: string;
           id?: boolean;
           limite_contratos_ativos?: number;
+          modelo_contrato?: string;
           mora_limite_aviso?: number;
           mora_percentual_mes?: number;
           multa_limite_aviso?: number;
@@ -195,6 +198,7 @@ export type Database = {
           cliente_id: string | null;
           criado_em: string;
           emprestimo_id: string | null;
+          enviado_por: string | null;
           id: string;
           nome_arquivo: string;
           tamanho_bytes: number | null;
@@ -205,6 +209,7 @@ export type Database = {
           cliente_id?: string | null;
           criado_em?: string;
           emprestimo_id?: string | null;
+          enviado_por?: string | null;
           id?: string;
           nome_arquivo: string;
           tamanho_bytes?: number | null;
@@ -215,6 +220,7 @@ export type Database = {
           cliente_id?: string | null;
           criado_em?: string;
           emprestimo_id?: string | null;
+          enviado_por?: string | null;
           id?: string;
           nome_arquivo?: string;
           tamanho_bytes?: number | null;
@@ -479,6 +485,10 @@ export type Database = {
       dearmor: { Args: { "": string }; Returns: string };
       eh_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
       eh_membro: { Args: Record<PropertyKey, never>; Returns: boolean };
+      estornar_pagamento: {
+        Args: { p_motivo: string; p_pagamento: string };
+        Returns: undefined;
+      };
       gen_random_uuid: { Args: Record<PropertyKey, never>; Returns: string };
       gen_salt: { Args: { "": string }; Returns: string };
       papel_atual: {
@@ -488,6 +498,41 @@ export type Database = {
       pgp_armor_headers: {
         Args: { "": string };
         Returns: Record<string, unknown>[];
+      };
+      quitar_emprestimo: {
+        Args: {
+          p_comprovante: string;
+          p_emprestimo: string;
+          p_forma: Database["public"]["Enums"]["forma_pagamento"];
+          p_itens: Json;
+          p_observacoes: string;
+          p_pago_em: string;
+        };
+        Returns: undefined;
+      };
+      recalcular_parcela: { Args: { p_parcela: string }; Returns: undefined };
+      registrar_pagamento: {
+        Args: {
+          p_comprovante: string;
+          p_desconto: number;
+          p_forma: Database["public"]["Enums"]["forma_pagamento"];
+          p_mora: number;
+          p_multa: number;
+          p_observacoes: string;
+          p_pago_em: string;
+          p_parcela: string;
+          p_valor: number;
+        };
+        Returns: string;
+      };
+      renegociar_emprestimo: {
+        Args: {
+          p_antigo: string;
+          p_motivo: string;
+          p_novo: Json;
+          p_parcelas: Json;
+        };
+        Returns: string;
       };
     };
     Enums: {
