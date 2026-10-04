@@ -7,8 +7,8 @@ import { requireUser } from "@/lib/supabase/server";
 const ATALHOS = [
   { href: "/cobranca", rotulo: "Cobrança de hoje", Icone: Megaphone },
   { href: "/calculadora", rotulo: "Simular empréstimo", Icone: Calculator },
-  { href: "/clientes", rotulo: "Novo cliente", Icone: UserPlus },
-  { href: "/clientes", rotulo: "Contratos", Icone: FileText },
+  { href: "/clientes/novo", rotulo: "Novo cliente", Icone: UserPlus },
+  { href: "/emprestimos", rotulo: "Empréstimos", Icone: FileText },
 ] as const;
 
 export default async function InicioPage() {

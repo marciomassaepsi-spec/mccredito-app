@@ -1,27 +1,28 @@
 import type { Metadata } from "next";
 
+import { formatCPF } from "@/lib/format";
+import { exibirChavePix } from "@/lib/pix";
 import { requireUser } from "@/lib/supabase/server";
+
+import { ConfigForm } from "./config-form";
 
 export const metadata: Metadata = { title: "Configurações" };
 
-function Linha({ rotulo, valor }: { rotulo: string; valor: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-4 border-b py-3 last:border-b-0">
-      <dt className="text-muted-foreground">{rotulo}</dt>
-      <dd className="num text-right font-bold">{valor || "não preenchido"}</dd>
-    </div>
-  );
+/** 2.000 → "2"; 1.5 → "1,5" */
+function numeroParaTexto(valor: number | string) {
+  return String(Number(valor)).replace(".", ",");
 }
 
-function pct(valor: number | string) {
-  const texto = String(valor).replace(".", ",");
-  return `${texto.includes(",") ? texto.replace(/,?0+$/, "") : texto}%`;
+function formatDocumento(doc: string) {
+  if (doc.length === 11) return formatCPF(doc);
+  if (doc.length === 14) return exibirChavePix("cnpj", doc);
+  return doc;
 }
 
 export default async function ConfiguracoesPage() {
   const { supabase, email } = await requireUser();
   const [{ data: config }, { data: perfil, error: erroPerfil }] = await Promise.all([
-    supabase.from("configuracoes").select("*").single(),
+    supabase.from("configuracoes").select("*").maybeSingle(),
     supabase.from("perfis").select("papel").maybeSingle(),
   ]);
 
@@ -31,46 +32,38 @@ export default async function ConfiguracoesPage() {
 
       {!perfil && !erroPerfil && (
         <p role="alert" className="rounded-xl bg-late-soft px-4 py-3 font-semibold text-late">
-          Seu usuário entrou, mas não tem perfil de acesso. Veja “Primeiro acesso” no README.
+          Seu usuário entrou, mas não tem perfil de acesso. Veja “Dúvidas comuns” no README.
         </p>
       )}
 
-      <section className="rounded-2xl border bg-card px-5 py-2">
-        <h2 className="pt-3 text-lg font-extrabold">Conta</h2>
-        <dl>
-          <Linha rotulo="E-mail" valor={email} />
-          <Linha rotulo="Acesso" valor={perfil?.papel === "admin" ? "Dono (acesso total)" : (perfil?.papel ?? "")} />
-        </dl>
+      <section className="rounded-2xl border bg-card px-4 py-3">
+        <p className="text-sm text-muted-foreground">Conectado como</p>
+        <p className="font-bold break-all">{email}</p>
+        <p className="text-sm text-muted-foreground">{perfil?.papel === "admin" ? "Dono, acesso total" : (perfil?.papel ?? "")}</p>
       </section>
 
-      {config && (
-        <>
-          <section className="rounded-2xl border bg-card px-5 py-2">
-            <h2 className="pt-3 text-lg font-extrabold">Empresa</h2>
-            <dl>
-              <Linha rotulo="Nome" valor={config.nome_empresa} />
-              <Linha rotulo="CPF ou CNPJ" valor={config.documento_empresa} />
-              <Linha rotulo="Cidade" valor={config.cidade} />
-              <Linha rotulo="Chave PIX" valor={config.chave_pix} />
-            </dl>
-          </section>
-          <section className="rounded-2xl border bg-card px-5 py-2">
-            <h2 className="pt-3 text-lg font-extrabold">Atraso e cobrança</h2>
-            <dl>
-              <Linha rotulo="Multa por atraso" valor={pct(config.multa_percentual)} />
-              <Linha rotulo="Juros de mora" valor={`${pct(config.mora_percentual_mes)} ao mês`} />
-              <Linha
-                rotulo="Horário para cobrar"
-                valor={`${config.cobranca_hora_inicio.slice(0, 5)} às ${config.cobranca_hora_fim.slice(0, 5)}`}
-              />
-              <Linha rotulo="Limite de contratos ativos" valor={String(config.limite_contratos_ativos)} />
-            </dl>
-          </section>
-        </>
+      {config && perfil?.papel === "admin" && (
+        <ConfigForm
+          inicial={{
+            nome_empresa: config.nome_empresa,
+            razao_social: config.razao_social,
+            documento_empresa: formatDocumento(config.documento_empresa),
+            cidade: config.cidade,
+            tipo_chave_pix: config.tipo_chave_pix,
+            chave_pix: exibirChavePix(config.tipo_chave_pix, config.chave_pix),
+            nome_recebedor_pix: config.nome_recebedor_pix,
+            multa_percentual: numeroParaTexto(config.multa_percentual),
+            mora_percentual_mes: numeroParaTexto(config.mora_percentual_mes),
+            cobranca_hora_inicio: config.cobranca_hora_inicio.slice(0, 5),
+            cobranca_hora_fim: config.cobranca_hora_fim.slice(0, 5),
+            limite_contratos_ativos: String(config.limite_contratos_ativos),
+          }}
+        />
       )}
-      <p className="text-sm text-muted-foreground">
-        A edição destes campos chega junto com a cobrança, na fase 6.
-      </p>
+
+      {config && perfil && perfil.papel !== "admin" && (
+        <p className="text-muted-foreground">Só o dono pode alterar as configurações.</p>
+      )}
     </div>
   );
 }

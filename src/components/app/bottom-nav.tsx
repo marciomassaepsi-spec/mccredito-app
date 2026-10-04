@@ -23,7 +23,10 @@ export function BottomNav() {
     >
       <ul className="mx-auto grid max-w-2xl grid-cols-4">
         {ITENS.map(({ href, rotulo, Icone }) => {
-          const ativo = href === "/" ? pathname === "/" : pathname.startsWith(href);
+          const ativo =
+            href === "/"
+              ? pathname === "/"
+              : pathname.startsWith(href) || (href === "/clientes" && pathname.startsWith("/emprestimos"));
           return (
             <li key={href}>
               <Link

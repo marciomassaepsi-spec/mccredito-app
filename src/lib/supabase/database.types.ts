@@ -97,6 +97,8 @@ export type Database = {
           multa_percentual: number;
           nome_empresa: string;
           nome_recebedor_pix: string;
+          razao_social: string;
+          tipo_chave_pix: string;
         };
         Insert: {
           atualizado_em?: string;
@@ -113,6 +115,8 @@ export type Database = {
           multa_percentual?: number;
           nome_empresa?: string;
           nome_recebedor_pix?: string;
+          razao_social?: string;
+          tipo_chave_pix?: string;
         };
         Update: {
           atualizado_em?: string;
@@ -129,6 +133,8 @@ export type Database = {
           multa_percentual?: number;
           nome_empresa?: string;
           nome_recebedor_pix?: string;
+          razao_social?: string;
+          tipo_chave_pix?: string;
         };
         Relationships: [];
       };
@@ -462,6 +468,14 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      cancelar_emprestimo: {
+        Args: { p_id: string; p_motivo: string };
+        Returns: undefined;
+      };
+      criar_emprestimo: {
+        Args: { p_emprestimo: Json; p_parcelas: Json };
+        Returns: string;
+      };
       dearmor: { Args: { "": string }; Returns: string };
       eh_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
       eh_membro: { Args: Record<PropertyKey, never>; Returns: boolean };

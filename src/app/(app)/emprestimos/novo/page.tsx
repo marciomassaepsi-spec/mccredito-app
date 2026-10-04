@@ -1,46 +1,67 @@
-import { FilePlus2 } from "lucide-react";
+import { UserPlus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { EmBreve } from "@/components/app/em-breve";
-import { formatCentavos } from "@/lib/format";
+import { buttonVariants } from "@/components/ui/button";
+import type { Sistema } from "@/lib/finance";
+import { centavosParaTexto, hojeISO } from "@/lib/format";
+import { requireUser } from "@/lib/supabase/server";
+
+import { EmprestimoForm } from "./emprestimo-form";
 
 export const metadata: Metadata = { title: "Novo empréstimo" };
-
-const SISTEMAS: Record<string, string> = { price: "Tabela Price", sac: "SAC", simples: "Juros simples" };
 
 function texto(v: string | string[] | undefined) {
   return typeof v === "string" ? v : "";
 }
 
+const SISTEMAS: Sistema[] = ["price", "sac", "simples"];
+
 export default async function NovoEmprestimoPage({ searchParams }: PageProps<"/emprestimos/novo">) {
   const q = await searchParams;
-  const valor = Number(texto(q.valor));
-  const taxa = Number(texto(q.taxa));
-  const parcelas = Number(texto(q.parcelas));
-  const sistema = SISTEMAS[texto(q.sistema)];
-  const temSimulacao = Number.isSafeInteger(valor) && valor > 0 && taxa >= 0 && parcelas > 0 && sistema;
+  const { supabase } = await requireUser();
+
+  const [{ data: clientes }, { count: ativos }, { data: config }] = await Promise.all([
+    supabase.from("clientes").select("id, nome").order("nome"),
+    supabase.from("emprestimos").select("id", { count: "exact", head: true }).eq("status", "ativo"),
+    supabase.from("configuracoes").select("limite_contratos_ativos").maybeSingle(),
+  ]);
+
+  const limite = config?.limite_contratos_ativos ?? 150;
+  const lotado = (ativos ?? 0) >= limite;
+
+  // Valores vindos da calculadora ("Virar empréstimo")
+  const valorCentavos = Number(texto(q.valor));
+  const sistema = texto(q.sistema);
+  const inicial = {
+    clienteId: clientes?.some((c) => c.id === texto(q.cliente)) ? texto(q.cliente) : "",
+    valor: Number.isSafeInteger(valorCentavos) && valorCentavos > 0 ? centavosParaTexto(valorCentavos) : "1.500,00",
+    taxa: /^\d+(\.\d+)?$/.test(texto(q.taxa)) ? texto(q.taxa).replace(".", ",") : "9,99",
+    parcelas: /^\d+$/.test(texto(q.parcelas)) ? texto(q.parcelas) : "6",
+    sistema: SISTEMAS.includes(sistema as Sistema) ? (sistema as Sistema) : ("price" as const),
+  };
 
   return (
     <div className="grid gap-5">
-      <EmBreve
-        titulo="Novo empréstimo"
-        fase={4}
-        Icone={FilePlus2}
-        descricao="Aqui você vai escolher o cliente, conferir as datas e salvar. As parcelas são geradas sozinhas."
-        itens={
-          temSimulacao
-            ? [
-                `Valor: ${formatCentavos(valor)}`,
-                `Taxa: ${String(taxa).replace(".", ",")}% ao mês (${sistema})`,
-                `Parcelas: ${parcelas}`,
-              ]
-            : ["Faça uma simulação na Calculadora e toque em “Virar empréstimo”."]
-        }
-      />
-      <Link href="/calculadora" className="font-bold text-primary underline-offset-4 hover:underline">
-        Voltar para a calculadora
-      </Link>
+      <h1 className="text-3xl font-black italic text-brand-deep">Novo empréstimo</h1>
+
+      {lotado && (
+        <p role="alert" className="rounded-xl bg-late-soft px-4 py-3 font-semibold text-late">
+          Você está com {ativos} contratos ativos, o limite de {limite}. Quite ou cancele algum, ou aumente o
+          limite nas Configurações.
+        </p>
+      )}
+
+      {clientes && clientes.length === 0 ? (
+        <div className="grid gap-3 rounded-2xl border border-dashed bg-card px-5 py-8 text-center">
+          <p className="font-bold">Cadastre um cliente primeiro.</p>
+          <Link href="/clientes/novo?voltar=emprestimo" className={buttonVariants({ className: "mx-auto h-12 px-5 font-bold" })}>
+            <UserPlus aria-hidden /> Cadastrar cliente
+          </Link>
+        </div>
+      ) : (
+        <EmprestimoForm clientes={clientes ?? []} hoje={hojeISO()} inicial={inicial} />
+      )}
     </div>
   );
 }

@@ -110,3 +110,45 @@ export function percentualParaTexto(taxa: number, casas = 2): string {
 export function centavosParaTexto(centavos: number): string {
   return new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2 }).format(centavos / 100);
 }
+
+/** Validação dos dígitos verificadores do CNPJ. */
+export function cnpjValido(cnpj: string): boolean {
+  const d = cnpj.replace(/\D/g, "");
+  if (d.length !== 14 || /^(\d)\1{13}$/.test(d)) return false;
+  const digito = (base: string) => {
+    const pesos = base.length === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    const soma = pesos.reduce((s, p, i) => s + p * Number(base[i]), 0);
+    const resto = soma % 11;
+    return resto < 2 ? 0 : 11 - resto;
+  };
+  return digito(d.slice(0, 12)) === Number(d[12]) && digito(d.slice(0, 13)) === Number(d[13]);
+}
+
+/** "52998224725" → "529.982.247-25" (ficha completa; nas listas use mascararCPF) */
+export function formatCPF(cpf: string): string {
+  const d = cpf.replace(/\D/g, "");
+  if (d.length !== 11) return cpf;
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+}
+
+/** "71912345678" → "(71) 91234-5678" */
+export function formatTelefone(telefone: string): string {
+  const d = telefone.replace(/\D/g, "").replace(/^55(?=\d{10,11}$)/, "");
+  if (d.length === 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+  if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return telefone;
+}
+
+/** Guarda telefones só com dígitos e DDD, sem o 55: "(71) 91234-5678" → "71912345678". */
+export function normalizarTelefone(telefone: string): string | null {
+  const d = telefone.replace(/\D/g, "").replace(/^55(?=\d{10,11}$)/, "");
+  return /^[1-9]{2}\d{8,9}$/.test(d) ? d : null;
+}
+
+/** Link wa.me para um número brasileiro, com mensagem opcional. */
+export function linkWhatsApp(telefone: string, mensagem?: string): string | null {
+  const d = normalizarTelefone(telefone);
+  if (!d) return null;
+  const texto = mensagem ? `?text=${encodeURIComponent(mensagem)}` : "";
+  return `https://wa.me/55${d}${texto}`;
+}
