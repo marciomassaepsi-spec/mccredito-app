@@ -20,8 +20,10 @@ Depois de publicar, siga o [roteiro de testes](docs/roteiro-de-testes.md) (uns 2
 
 ## Como colocar no ar
 
-Leva uns 15 minutos e é feito uma vez só. Os dois serviços são gratuitos para o tamanho da
-MC Créditos (até 150 contratos ativos).
+Leva uns 30 minutos e é feito uma vez só. O Supabase tem plano gratuito que comporta o tamanho da
+MC Créditos (até 150 contratos ativos). Na Vercel, o plano gratuito (Hobby) é, pelos termos dela,
+para uso pessoal e não comercial; para a empresa, o plano adequado é o Pro (pago). Confira os
+termos atuais em vercel.com/pricing antes de escolher.
 
 ### 1. Criar o banco de dados (Supabase)
 
@@ -70,6 +72,8 @@ segurança do banco. **Nunca use a `secret key` ou a `service_role` no app.**
    - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` = a publishable key
 4. Clique em **Deploy**. No fim, a Vercel mostra o endereço do app (algo como
    `mccredito-app.vercel.app`).
+5. Volte ao Supabase, em **Authentication → URL Configuration**, e coloque esse endereço em
+   **Site URL**. É para onde vão os links de "esqueci a senha".
 
 ### 5. Preencher os dados da empresa
 
