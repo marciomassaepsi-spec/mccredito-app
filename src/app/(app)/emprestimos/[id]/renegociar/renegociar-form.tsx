@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
-import { AreaTexto, BotaoEnviar, Campo, Entrada, ESTADO_INICIAL, MensagemForm, Selecao } from "@/components/app/form";
+import { AreaTexto, BotaoEnviar, Campo, Entrada, useAcaoSemReset, MensagemForm, Selecao } from "@/components/app/form";
 import { montarParcelas, NOME_SISTEMA, umMesDepois } from "@/lib/emprestimos";
 import type { Periodicidade, Sistema } from "@/lib/finance";
 import { centavosParaTexto, formatCentavos, formatData, parsePercentual, parseReaisParaCentavos } from "@/lib/format";
@@ -18,7 +18,7 @@ type Props = {
 };
 
 export function RenegociarForm({ emprestimoId, saldoCentavos, taxaAtual, sistemaAtual, hoje }: Props) {
-  const [estado, acao] = useActionState(renegociarEmprestimo, ESTADO_INICIAL);
+  const { estado, aoEnviar, enviando } = useAcaoSemReset(renegociarEmprestimo);
   const [valor, setValor] = useState(centavosParaTexto(saldoCentavos));
   const [taxa, setTaxa] = useState(taxaAtual);
   const [qtd, setQtd] = useState("6");
@@ -37,7 +37,7 @@ export function RenegociarForm({ emprestimoId, saldoCentavos, taxaAtual, sistema
   }, [valor, taxa, qtd, sistema, vencimento, periodicidade, hoje]);
 
   return (
-    <form action={acao} className="grid gap-4" noValidate>
+    <form onSubmit={aoEnviar} className="grid gap-4" noValidate>
       <input type="hidden" name="emprestimo_id" value={emprestimoId} />
 
       <Campo id="valor" rotulo="Novo valor (R$)" erro={e.valor} dica={`Sugestão: o valor para quitar hoje, ${formatCentavos(saldoCentavos)}. Pode ajustar se combinou outro valor.`}>
@@ -100,7 +100,7 @@ export function RenegociarForm({ emprestimoId, saldoCentavos, taxaAtual, sistema
         pagamentos já feitos continuam no histórico.
       </p>
       <MensagemForm estado={estado} />
-      <BotaoEnviar enviando="Renegociando…">Confirmar renegociação</BotaoEnviar>
+      <BotaoEnviar pendente={enviando} enviando="Renegociando…">Confirmar renegociação</BotaoEnviar>
     </form>
   );
 }

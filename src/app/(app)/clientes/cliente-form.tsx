@@ -1,15 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
 
 import {
   AreaTexto,
   BotaoEnviar,
   Campo,
   Entrada,
-  ESTADO_INICIAL,
   MensagemForm,
+  useAcaoSemReset,
 } from "@/components/app/form";
 
 import { salvarCliente } from "./actions";
@@ -25,13 +24,12 @@ export type ClienteInicial = {
 };
 
 export function ClienteForm({ inicial, voltar }: { inicial?: ClienteInicial; voltar?: string }) {
-  const [estado, acao] = useActionState(salvarCliente, ESTADO_INICIAL);
+  const { estado, aoEnviar, enviando } = useAcaoSemReset(salvarCliente);
   const v = (campo: keyof ClienteInicial) => estado.valores[campo] ?? String(inicial?.[campo] ?? "");
   const e = estado.erros;
 
   return (
-    // Remonta com o que foi digitado depois de um envio com erro
-    <form key={JSON.stringify(estado.valores)} action={acao} className="grid gap-4" noValidate>
+    <form onSubmit={aoEnviar} className="grid gap-4" noValidate>
       {inicial && <input type="hidden" name="id" value={inicial.id} />}
       {voltar && <input type="hidden" name="voltar" value={voltar} />}
 
@@ -79,7 +77,7 @@ export function ClienteForm({ inicial, voltar }: { inicial?: ClienteInicial; vol
       <MensagemForm estado={estado} />
 
       <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-        <BotaoEnviar>{inicial ? "Salvar alterações" : "Cadastrar cliente"}</BotaoEnviar>
+        <BotaoEnviar pendente={enviando}>{inicial ? "Salvar alterações" : "Cadastrar cliente"}</BotaoEnviar>
         <Link
           href={inicial ? `/clientes/${inicial.id}` : "/clientes"}
           className="grid h-12 place-items-center rounded-lg px-4 font-bold text-muted-foreground hover:text-foreground"

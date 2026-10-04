@@ -1,8 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
-
-import { BotaoEnviar, Campo, Entrada, ESTADO_INICIAL, MensagemForm, Selecao } from "@/components/app/form";
+import { BotaoEnviar, Campo, Entrada, useAcaoSemReset, MensagemForm, Selecao } from "@/components/app/form";
 import { NOME_TIPO_CHAVE, type TipoChavePix } from "@/lib/pix";
 
 import { salvarConfiguracoes } from "./actions";
@@ -32,14 +30,13 @@ function Secao({ titulo, children }: { titulo: string; children: React.ReactNode
 }
 
 export function ConfigForm({ inicial }: { inicial: ConfigInicial }) {
-  const [estado, acao] = useActionState(salvarConfiguracoes, ESTADO_INICIAL);
+  const { estado, aoEnviar, enviando } = useAcaoSemReset(salvarConfiguracoes);
   const v = (campo: keyof ConfigInicial) => estado.valores[campo] ?? inicial[campo];
   const e = estado.erros;
 
   return (
     // A chave muda a cada envio com erro: o formulário remonta com o que foi digitado
-    // (sem isso, o React volta as listas de seleção para o valor inicial)
-    <form key={JSON.stringify(estado.valores)} action={acao} className="grid gap-5" noValidate>
+    <form onSubmit={aoEnviar} className="grid gap-5" noValidate>
       <Secao titulo="Empresa">
         <Campo id="nome_empresa" rotulo="Nome da empresa" erro={e.nome_empresa}>
           <Entrada id="nome_empresa" name="nome_empresa" defaultValue={v("nome_empresa")} erro={e.nome_empresa} />
@@ -99,7 +96,7 @@ export function ConfigForm({ inicial }: { inicial: ConfigInicial }) {
       </Secao>
 
       <MensagemForm estado={estado} />
-      <BotaoEnviar>Salvar configurações</BotaoEnviar>
+      <BotaoEnviar pendente={enviando}>Salvar configurações</BotaoEnviar>
     </form>
   );
 }

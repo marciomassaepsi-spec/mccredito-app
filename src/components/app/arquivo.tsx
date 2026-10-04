@@ -1,35 +1,17 @@
 "use client";
 
 import { Paperclip } from "lucide-react";
-import { startTransition, useActionState, useState, type FormEvent } from "react";
+import { useState } from "react";
 
 import { formDataComArquivoReduzido } from "@/lib/comprimir";
 
-import { ESTADO_INICIAL, type EstadoForm } from "./form";
+import { useAcaoSemReset, type EstadoForm } from "./form";
 
-type Acao = (anterior: EstadoForm, formData: FormData) => Promise<EstadoForm>;
-
-/**
- * Como useActionState, mas reduz a foto anexada antes de enviar.
- * Devolve o handler para o onSubmit do formulário.
- */
-export function useAcaoComArquivo(acao: Acao) {
-  const [estado, despachar, pendente] = useActionState(acao, ESTADO_INICIAL);
-  const [preparando, setPreparando] = useState(false);
-
-  async function aoEnviar(evento: FormEvent<HTMLFormElement>) {
-    evento.preventDefault();
-    setPreparando(true);
-    try {
-      const dados = await formDataComArquivoReduzido(evento.currentTarget);
-      startTransition(() => despachar(dados));
-    } finally {
-      setPreparando(false);
-    }
-  }
-
-  return { estado, aoEnviar, enviando: pendente || preparando };
+/** Como useAcaoSemReset, mas reduz a foto anexada antes de enviar. */
+export function useAcaoComArquivo(acao: (anterior: EstadoForm, formData: FormData) => Promise<EstadoForm>) {
+  return useAcaoSemReset(acao, formDataComArquivoReduzido);
 }
+
 
 export function CampoArquivo({
   id = "arquivo",

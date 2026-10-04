@@ -11,9 +11,9 @@ cobrança e calculadora de juros. Funciona no navegador e pode ser instalado no 
 | 2 | Base: login, layout com o logo, banco de dados e segurança | Pronta |
 | 3 | Calculadora de juros (7 modos), com testes | Pronta |
 | 4 | Clientes e empréstimos, com parcelas geradas sozinhas; Configurações editáveis | Pronta |
-| 5 | Pagamentos, quitação, renegociação e contratos (upload e PDF) | **Pronta** |
-| 6 | Cobrança: tela do dia, WhatsApp, PIX, régua e histórico | Próxima |
-| 7 | Painel, exportação, backup e auditoria | |
+| 5 | Pagamentos, quitação, renegociação e contratos (upload e PDF) | Pronta |
+| 6 | Cobrança: tela do dia, WhatsApp com mensagem pronta, chave PIX, régua, promessas e visitas | **Pronta** |
+| 7 | Painel, exportação, backup e auditoria | Próxima |
 | 8 | Revisão de segurança e publicação | |
 
 ## Como colocar no ar
@@ -80,6 +80,21 @@ que for, ex. `(71) 91234-5678`: o app guarda no formato que o PIX exige.
   **Adicionar à tela inicial**.
 - **iPhone (Safari):** abra o endereço, toque em **Compartilhar** e em
   **Adicionar à Tela de Início**.
+
+## Cobrança
+
+A aba **Cobrança** abre com quem precisa ser cobrado: promessas que vencem hoje ou não foram cumpridas,
+parcelas atrasadas (das mais antigas para as mais novas), as que vencem hoje e as dos próximos 7 dias.
+Em cada uma:
+
+- **WhatsApp** abre a conversa com a mensagem pronta para aquele dia de atraso. Os textos ficam em
+  **Configurações → Mensagens de cobrança**. Fora do horário de cobrança (padrão: 8h às 20h) o botão
+  fica bloqueado.
+- **Chave PIX** copia a sua chave para colar onde quiser.
+- **Contato** registra o que aconteceu (não atendeu, prometeu pagar em tal dia, negociando...). O
+  histórico aparece na ficha do cliente.
+
+**Visitas do dia** lista os clientes atrasados com endereço e abre a rota no Google Maps.
 
 ## Contrato
 
@@ -150,6 +165,11 @@ npm run typecheck && npm run lint
 - `src/lib/contrato.ts` + `contrato-pdf.ts` modelo com `{{variaveis}}` e geração do PDF (pdf-lib).
 - Arquivos ficam no bucket privado `documentos`; fotos são reduzidas no navegador antes do envio
   (limite de 4,5 MB da Vercel) e abertas por `/arquivos/...`, que gera um link assinado de 2 minutos.
+- `src/lib/cobranca.ts` fila de cobrança, escolha da mensagem da régua por dias de atraso, variáveis
+  das mensagens e horário de cobrança no fuso de São Paulo.
+- Formulários usam `useAcaoSemReset` (`src/components/app/form.tsx`): com `<form action>` o React
+  limpa o formulário depois de cada envio, e listas de seleção controladas ficavam com um valor na tela
+  e outro no estado.
 - `npm run db:seed:gerar` regenera `supabase/seed.sql` a partir de `scripts/gerar-seed.ts`.
 - `src/lib/format.ts` dinheiro (sempre centavos inteiros), datas no fuso `America/Sao_Paulo` e CPF.
 - `supabase/migrations/` esquema versionado. Tudo tem Row Level Security: só membros ativos de

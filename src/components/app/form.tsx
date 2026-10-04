@@ -1,6 +1,6 @@
 "use client";
 
-import type { ComponentProps, ReactNode } from "react";
+import { startTransition, useActionState, useState, type ComponentProps, type FormEvent, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 
 import { cn } from "cn";
@@ -16,6 +16,34 @@ export type EstadoForm = {
 };
 
 export const ESTADO_INICIAL: EstadoForm = { erros: {}, mensagem: null, ok: false, valores: {} };
+
+type Acao = (anterior: EstadoForm, formData: FormData) => Promise<EstadoForm>;
+
+/**
+ * Envia o formulário para a Server Action sem o "reset" automático do React.
+ * Com <form action={...}>, o React limpa o formulário depois de cada envio:
+ * listas de seleção controladas voltavam para a primeira opção na tela, mas o
+ * estado guardava o valor antigo, e um novo envio mandava o campo errado.
+ * Aqui o que a pessoa digitou fica na tela, com erro ou sem erro.
+ */
+export function useAcaoSemReset(acao: Acao, preparar?: (form: HTMLFormElement) => Promise<FormData> | FormData) {
+  const [estado, despachar, pendente] = useActionState(acao, ESTADO_INICIAL);
+  const [preparando, setPreparando] = useState(false);
+
+  async function aoEnviar(evento: FormEvent<HTMLFormElement>) {
+    evento.preventDefault();
+    const form = evento.currentTarget;
+    setPreparando(true);
+    try {
+      const dados = preparar ? await preparar(form) : new FormData(form);
+      startTransition(() => despachar(dados));
+    } finally {
+      setPreparando(false);
+    }
+  }
+
+  return { estado, aoEnviar, enviando: pendente || preparando };
+}
 
 const base =
   "w-full min-w-0 rounded-xl border border-input bg-card px-3 text-base outline-none transition-colors placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/40 aria-invalid:border-destructive aria-invalid:ring-destructive/20 disabled:opacity-60";
@@ -72,13 +100,17 @@ export function BotaoEnviar({
   enviando = "Salvando…",
   className,
   variant,
+  pendente,
 }: {
   children: ReactNode;
   enviando?: string;
   className?: string;
   variant?: ComponentProps<typeof Button>["variant"];
+  /** Quando o envio é feito por useAcaoSemReset */
+  pendente?: boolean;
 }) {
-  const { pending } = useFormStatus();
+  const status = useFormStatus();
+  const pending = pendente ?? status.pending;
   return (
     <Button type="submit" disabled={pending} variant={variant} className={cn("h-12 text-base font-bold", className)}>
       {pending ? enviando : children}

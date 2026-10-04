@@ -1,15 +1,14 @@
 "use client";
 
 import { FileDown, Save } from "lucide-react";
-import { useActionState } from "react";
 
-import { BotaoEnviar, ESTADO_INICIAL, MensagemForm } from "@/components/app/form";
+import { BotaoEnviar, useAcaoSemReset, MensagemForm } from "@/components/app/form";
 import { buttonVariants } from "@/components/ui/button";
 
 import { guardarContrato } from "../pagamentos-actions";
 
 export function ContratoCard({ emprestimoId, dadosIncompletos }: { emprestimoId: string; dadosIncompletos: boolean }) {
-  const [estado, acao] = useActionState(guardarContrato, ESTADO_INICIAL);
+  const { estado, aoEnviar, enviando } = useAcaoSemReset(guardarContrato);
   return (
     <section className="grid gap-3 rounded-2xl border bg-card p-4">
       <div>
@@ -30,9 +29,9 @@ export function ContratoCard({ emprestimoId, dadosIncompletos }: { emprestimoId:
         >
           <FileDown aria-hidden /> Abrir PDF
         </a>
-        <form action={acao} className="grid">
+        <form onSubmit={aoEnviar} className="grid">
           <input type="hidden" name="emprestimo_id" value={emprestimoId} />
-          <BotaoEnviar variant="outline" enviando="Guardando…" className="border-gold text-gold-ink">
+          <BotaoEnviar pendente={enviando} variant="outline" enviando="Guardando…" className="border-gold text-gold-ink">
             <Save aria-hidden /> Guardar cópia
           </BotaoEnviar>
         </form>

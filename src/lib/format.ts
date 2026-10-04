@@ -152,3 +152,9 @@ export function linkWhatsApp(telefone: string, mensagem?: string): string | null
   const texto = mensagem ? `?text=${encodeURIComponent(mensagem)}` : "";
   return `https://wa.me/55${d}${texto}`;
 }
+
+/** "2026-10-05" + (-90) → "2026-07-07" */
+export function somarDiasISO(iso: string, dias: number): string {
+  const [a, m, d] = iso.split("-").map(Number);
+  return new Date(Date.UTC(a, m - 1, d + dias)).toISOString().slice(0, 10);
+}

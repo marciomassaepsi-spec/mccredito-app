@@ -63,6 +63,19 @@ export default async function ConfiguracoesPage() {
       )}
 
       <Link
+        href="/configuracoes/mensagens"
+        className="flex items-center justify-between rounded-2xl border bg-card px-4 py-4 font-bold outline-none hover:border-primary focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <span>
+          Mensagens de cobrança
+          <span className="block text-sm font-normal text-muted-foreground">Textos do WhatsApp antes e depois do vencimento</span>
+        </span>
+        <span aria-hidden className="text-primary">
+          →
+        </span>
+      </Link>
+
+      <Link
         href="/configuracoes/contrato"
         className="flex items-center justify-between rounded-2xl border bg-card px-4 py-4 font-bold outline-none hover:border-primary focus-visible:ring-3 focus-visible:ring-ring/50"
       >

@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
-import { AreaTexto, BotaoEnviar, Campo, Entrada, ESTADO_INICIAL, MensagemForm, Selecao } from "@/components/app/form";
+import { AreaTexto, BotaoEnviar, Campo, Entrada, useAcaoSemReset, MensagemForm, Selecao } from "@/components/app/form";
 import { Button } from "@/components/ui/button";
 import { montarParcelas, NOME_PERIODICIDADE, NOME_SISTEMA, umMesDepois } from "@/lib/emprestimos";
 import { cetMensal, mensalParaAnual, type Periodicidade, type Sistema } from "@/lib/finance";
@@ -26,7 +26,7 @@ type Props = {
 };
 
 export function EmprestimoForm({ clientes, hoje, inicial }: Props) {
-  const [estado, acao] = useActionState(criarEmprestimo, ESTADO_INICIAL);
+  const { estado, aoEnviar, enviando } = useAcaoSemReset(criarEmprestimo);
   const [revisando, setRevisando] = useState(false);
   // Depois da primeira tentativa de revisar, os erros dos campos ficam visíveis
   const [tentou, setTentou] = useState(false);
@@ -80,7 +80,7 @@ export function EmprestimoForm({ clientes, hoje, inicial }: Props) {
   const erro = (campo: string) => estado.erros[campo] ?? (tentou ? erros[campo] : undefined);
 
   return (
-    <form action={acao} className="grid gap-5" noValidate>
+    <form onSubmit={aoEnviar} className="grid gap-5" noValidate>
       {/* Os campos ficam montados mesmo na revisão, para irem junto no envio */}
       <div className={revisando ? "hidden" : "grid gap-4"}>
         <Campo id="cliente_id" rotulo="Cliente" erro={erro("cliente_id")}>
@@ -226,7 +226,7 @@ export function EmprestimoForm({ clientes, hoje, inicial }: Props) {
               <MensagemForm estado={estado} />
 
               <div className="grid gap-2 sm:grid-cols-2">
-                <BotaoEnviar>Confirmar e salvar</BotaoEnviar>
+                <BotaoEnviar pendente={enviando}>Confirmar e salvar</BotaoEnviar>
                 <Button type="button" variant="outline" className="h-12 text-base font-bold" onClick={() => setRevisando(false)}>
                   Voltar e alterar
                 </Button>

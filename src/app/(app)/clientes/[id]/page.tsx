@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { Documentos } from "@/components/app/documentos";
 import { Selo } from "@/components/app/selo";
 import { buttonVariants } from "@/components/ui/button";
+import { NOME_RESULTADO, NOME_TIPO_CONTATO } from "@/lib/cobranca";
 import { calcularPontualidade, NOME_SISTEMA, resumirParcelas } from "@/lib/emprestimos";
 import { formatCentavos, formatCPF, formatData, formatPercentual, formatTelefone, hojeISO, linkWhatsApp } from "@/lib/format";
 import { requireUser } from "@/lib/supabase/server";
@@ -21,11 +22,12 @@ export default async function ClientePage({ params }: PageProps<"/clientes/[id]"
   const { data: c } = await supabase
     .from("clientes")
     .select(
-      "id, nome, cpf, whatsapp, endereco, observacoes, criado_em, documentos(id, tipo, nome_arquivo, caminho, criado_em), emprestimos(id, valor_centavos, taxa_percentual, sistema, qtd_parcelas, liberado_em, status, parcelas(numero, vencimento, valor_centavos, pago_centavos, status, quitada_em))",
+      "id, nome, cpf, whatsapp, endereco, observacoes, criado_em, contatos_cobranca(id, tipo, resultado, promessa_para, observacoes, criado_em), documentos(id, tipo, nome_arquivo, caminho, criado_em), emprestimos(id, valor_centavos, taxa_percentual, sistema, qtd_parcelas, liberado_em, status, parcelas(numero, vencimento, valor_centavos, pago_centavos, status, quitada_em))",
     )
     .eq("id", id)
     .order("liberado_em", { referencedTable: "emprestimos", ascending: false })
     .order("criado_em", { referencedTable: "documentos", ascending: false })
+    .order("criado_em", { referencedTable: "contatos_cobranca", ascending: false })
     .maybeSingle();
   if (!c) notFound();
 
@@ -114,6 +116,28 @@ export default async function ClientePage({ params }: PageProps<"/clientes/[id]"
           {c.observacoes && <p className="text-sm whitespace-pre-line text-muted-foreground">{c.observacoes}</p>}
         </section>
       )}
+
+      <section className="grid gap-2 rounded-2xl border bg-card p-4">
+        <h2 className="text-lg font-extrabold">Contatos de cobrança</h2>
+        {c.contatos_cobranca.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhum contato registrado.</p>
+        ) : (
+          <ol className="grid gap-2">
+            {c.contatos_cobranca.slice(0, 20).map((ct) => (
+              <li key={ct.id} className="grid gap-0.5 border-l-2 border-primary/40 pl-3">
+                <p className="text-sm font-bold">
+                  {NOME_RESULTADO[ct.resultado]}
+                  {ct.promessa_para && ` para ${formatData(ct.promessa_para)}`}
+                </p>
+                <p className="num text-xs text-muted-foreground">
+                  {NOME_TIPO_CONTATO[ct.tipo]} · {formatData(ct.criado_em.slice(0, 10))}
+                  {ct.observacoes && ` · ${ct.observacoes}`}
+                </p>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
 
       <Documentos documentos={c.documentos} clienteId={c.id} podeApagar={perfil?.papel === "admin"} voltar={`/clientes/${c.id}`} />
 
