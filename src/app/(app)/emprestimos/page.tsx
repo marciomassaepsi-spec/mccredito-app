@@ -1,4 +1,4 @@
-import { FilePlus2 } from "lucide-react";
+import { FilePlus2, FileSpreadsheet } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -52,6 +52,9 @@ export default async function EmprestimosPage({ searchParams }: PageProps<"/empr
           <FilePlus2 aria-hidden /> Novo
         </Link>
       </div>
+      <Link href="/emprestimos/importar" className="-mt-3 flex items-center gap-2 text-sm font-bold text-primary">
+        <FileSpreadsheet className="size-4" aria-hidden /> Importar contratos de antes do app (planilha)
+      </Link>
 
       <nav aria-label="Filtrar" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
         {FILTROS.map((x) => (

@@ -76,6 +76,20 @@ número do passo e o que apareceu na tela.
       motivo e confirme. Abre o empréstimo novo; o antigo fica "Renegociado" e os dois têm link um
       para o outro.
 
+## 8b. Contratos de antes do app
+
+- [ ] **8b.1** **Empréstimos → Novo**: valor `1.500,00`, toque em **Sei o valor da parcela** e digite
+      `344,00`, `6` parcelas. Data da liberação e 1º vencimento uns 3 meses atrás. Marque **Este
+      empréstimo começou antes do app** e coloque `2` parcelas já pagas.
+- [ ] **8b.2** Na revisão, as parcelas são de **R$ 344,00**, a taxa aparece como **9,96%** e as duas
+      primeiras estão marcadas **Paga**. Confirme: o empréstimo abre com 2 parcelas pagas.
+- [ ] **8b.3** **Empréstimos → Importar contratos de antes do app → Baixar planilha modelo**. Preencha
+      duas linhas (um cliente de teste novo e um com erro, ex.: valor `mil`) e envie.
+- [ ] **8b.4** A conferência mostra uma linha **Pronto** e a outra **Com erro**, dizendo o que corrigir.
+      Toque em **Importar 1 contrato**: aparece "1 contrato importado".
+- [ ] **8b.5** Envie a mesma planilha de novo e importe: aparece "já estavam no app e não foram
+      duplicados".
+
 ## 9. Painel, backup e histórico
 
 - [ ] **9.1** **Configurações → Exportar e backup → Baixar backup**. Abra o arquivo no Excel ou no

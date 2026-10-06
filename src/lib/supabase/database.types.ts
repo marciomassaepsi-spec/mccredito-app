@@ -485,6 +485,10 @@ export type Database = {
         Args: { p_emprestimo: Json; p_parcelas: Json };
         Returns: string;
       };
+      criar_emprestimo_em_andamento: {
+        Args: { p_emprestimo: Json; p_ja_pagas: number; p_parcelas: Json };
+        Returns: string;
+      };
       dearmor: { Args: { "": string }; Returns: string };
       eh_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
       eh_membro: { Args: Record<PropertyKey, never>; Returns: boolean };
@@ -495,6 +499,7 @@ export type Database = {
       excluir_dados_cliente: { Args: { p_cliente: string }; Returns: string };
       gen_random_uuid: { Args: Record<PropertyKey, never>; Returns: string };
       gen_salt: { Args: { "": string }; Returns: string };
+      importar_contratos: { Args: { p_linhas: Json }; Returns: Json };
       papel_atual: {
         Args: Record<PropertyKey, never>;
         Returns: Database["public"]["Enums"]["papel_usuario"];

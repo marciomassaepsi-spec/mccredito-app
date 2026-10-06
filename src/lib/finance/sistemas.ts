@@ -18,10 +18,17 @@ export function parcelaPrice(principal: number, taxa: number, parcelas: number):
  * A última parcela absorve a sobra do arredondamento para o saldo fechar em zero.
  *
  * @param taxa taxa por período em decimal (10% = 0.1)
+ * @param parcelaFixaCentavos usa este valor de parcela em vez de calcular
+ *   (contrato que já tinha a parcela combinada; a taxa vem de descobrirTaxa)
  */
-export function tabelaPrice(principalCentavos: number, taxa: number, parcelas: number): Cronograma {
+export function tabelaPrice(
+  principalCentavos: number,
+  taxa: number,
+  parcelas: number,
+  parcelaFixaCentavos?: number,
+): Cronograma {
   validarEntrada(principalCentavos, taxa, parcelas);
-  const parcela = arredondar(parcelaPrice(principalCentavos, taxa, parcelas));
+  const parcela = parcelaFixaCentavos ?? arredondar(parcelaPrice(principalCentavos, taxa, parcelas));
   const linhas: LinhaCronograma[] = [];
   let saldo = principalCentavos;
 

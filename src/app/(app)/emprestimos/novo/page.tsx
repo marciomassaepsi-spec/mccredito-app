@@ -58,6 +58,9 @@ export default async function NovoEmprestimoPage({ searchParams }: PageProps<"/e
           <Link href="/clientes/novo?voltar=emprestimo" className={buttonVariants({ className: "mx-auto h-12 px-5 font-bold" })}>
             <UserPlus aria-hidden /> Cadastrar cliente
           </Link>
+          <Link href="/emprestimos/importar" className="text-sm font-bold text-primary">
+            Ou importe clientes e contratos de uma planilha
+          </Link>
         </div>
       ) : (
         <EmprestimoForm clientes={clientes ?? []} hoje={hojeISO()} inicial={inicial} />

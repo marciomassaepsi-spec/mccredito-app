@@ -17,7 +17,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Cálculos financeiros são funções puras em `src/lib/finance/` com testes; nunca calcule valores no
   navegador para gravar: as Server Actions recalculam e as funções SQL conferem.
 - Escritas que mexem em várias tabelas passam por funções SQL (`criar_emprestimo`,
-  `registrar_pagamento`, `quitar_emprestimo`, `renegociar_emprestimo`, `excluir_dados_cliente`).
+  `criar_emprestimo_em_andamento`, `importar_contratos`, `registrar_pagamento`, `quitar_emprestimo`,
+  `renegociar_emprestimo`, `excluir_dados_cliente`).
 - Mudança no banco = nova migration em `supabase/migrations/` (nunca editar uma já publicada) +
   `npm run db:types` + atualizar a lista de migrations no README.
 - Formulários usam `useAcaoSemReset` (não `<form action>`), para o React não limpar os campos.

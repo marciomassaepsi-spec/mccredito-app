@@ -42,6 +42,11 @@ export function mensagemDoBanco(erro: { code?: string; message?: string } | null
   if (msg.startsWith("EMPRESTIMO_INATIVO")) return "Este empréstimo não está mais ativo.";
   if (msg.startsWith("QUITACAO_INCOMPLETA")) return "As parcelas mudaram enquanto você conferia. Atualize a tela e tente de novo.";
   if (msg.startsWith("CRONOGRAMA_INVALIDO")) return "As parcelas calculadas não conferem. Revise os valores.";
+  if (msg.startsWith("JA_PAGAS_INVALIDO")) return "Parcelas já pagas precisa ser menor que o total de parcelas.";
+  // Função SQL que ainda não existe no banco: faltou rodar a migration nova
+  if (erro.code === "PGRST202") {
+    return "Falta atualizar o banco de dados: no Supabase, rode no SQL Editor a migration mais nova da pasta supabase/migrations (veja o README).";
+  }
   if (erro.code === "42501") return "Seu usuário não tem permissão para isso.";
   if (erro.code === "23503") return "Não dá para apagar: há registros ligados a este.";
   return "Não foi possível salvar agora. Confira sua internet e tente de novo.";

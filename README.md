@@ -14,7 +14,8 @@ cobrança e calculadora de juros. Funciona no navegador e pode ser instalado no 
 | 5 | Pagamentos, quitação, renegociação e contratos (upload e PDF) | Pronta |
 | 6 | Cobrança: tela do dia, WhatsApp com mensagem pronta, chave PIX, régua, promessas e visitas | Pronta |
 | 7 | Painel, exportação, backup e histórico de alterações | Pronta |
-| 8 | Revisão de segurança, direitos do cliente (LGPD) e roteiro de testes | **Pronta** |
+| 8 | Revisão de segurança, direitos do cliente (LGPD) e roteiro de testes | Pronta |
+| 9 | Contratos de antes do app: parcelas já pagas, valor da parcela e importação por planilha | **Pronta** |
 
 Depois de publicar, siga o [roteiro de testes](docs/roteiro-de-testes.md) (uns 20 minutos).
 
@@ -38,6 +39,7 @@ termos atuais em vercel.com/pricing antes de escolher.
    2. [`20261005120000_emprestimos.sql`](supabase/migrations/20261005120000_emprestimos.sql)
    3. [`20261006120000_pagamentos.sql`](supabase/migrations/20261006120000_pagamentos.sql)
    4. [`20261008120000_seguranca_lgpd.sql`](supabase/migrations/20261008120000_seguranca_lgpd.sql)
+   5. [`20261009120000_contratos_em_andamento.sql`](supabase/migrations/20261009120000_contratos_em_andamento.sql)
 
    Para cada um: abra aqui no GitHub, copie todo o conteúdo, cole no SQL Editor (em uma aba nova,
    **New query**) e clique em **Run**. Deve aparecer "Success. No rows returned".
@@ -87,6 +89,25 @@ que for, ex. `(71) 91234-5678`: o app guarda no formato que o PIX exige.
   **Adicionar à tela inicial**.
 - **iPhone (Safari):** abra o endereço, toque em **Compartilhar** e em
   **Adicionar à Tela de Início**.
+
+## Contratos de antes do app
+
+Para os empréstimos que já estavam rodando quando você começou a usar o app:
+
+- **Um por um:** em **Empréstimos → Novo**, use a data do empréstimo e do 1º vencimento de verdade
+  (podem estar no passado), marque **Este empréstimo começou antes do app** e diga quantas parcelas
+  já foram pagas. Se você sabe o valor da parcela combinada (ex.: 6x de R$ 344,00) e não a taxa,
+  toque em **Sei o valor da parcela**: o app usa exatamente esse valor e calcula a taxa.
+- **Vários de uma vez:** em **Empréstimos → Importar contratos de antes do app**, baixe a planilha
+  modelo, preencha uma linha por contrato (no Excel ou no Google Planilhas) e envie. O app mostra
+  linha por linha o que vai entrar e o que está errado, e só grava quando você confirma. O cliente
+  é cadastrado se ainda não existir (achado pelo CPF ou, sem CPF, pelo nome e WhatsApp). Mandar a
+  mesma planilha de novo não duplica nada.
+
+As parcelas já pagas entram como recebidas na data do vencimento de cada uma, com a observação
+"Paga antes do cadastro no app". Se uma delas foi paga só em parte, registre o resto depois em
+**Receber**. O CPF é opcional na planilha; complete na ficha do cliente antes de gerar um contrato
+novo para ele.
 
 ## Cobrança
 
@@ -207,6 +228,12 @@ npm run typecheck && npm run lint
 - `src/lib/pagamentos.ts` multa e mora na data, divisão do recebimento (encargos primeiro) e plano
   de quitação. As funções `registrar_pagamento`, `estornar_pagamento`, `quitar_emprestimo` e
   `renegociar_emprestimo` gravam tudo numa transação e recalculam parcela e empréstimo.
+- `src/lib/importacao.ts` lê e confere a planilha de contratos em andamento (títulos com apelidos,
+  datas, CPF sem o zero da frente, CSV) e `src/lib/planilha.ts` abre `.xlsx`/CSV e gera o modelo
+  (`/importar/modelo`). `importar_contratos` grava cada linha numa subtransação: uma linha com erro
+  não desfaz as outras. `criar_emprestimo_em_andamento` cria o empréstimo e dá baixa nas primeiras
+  parcelas. Pelo valor da parcela, `montarParcelasPelaParcela` acha a taxa da Price e usa a parcela
+  exata, com a última acertando os centavos.
 - `src/lib/contrato.ts` + `contrato-pdf.ts` modelo com `{{variaveis}}` e geração do PDF (pdf-lib).
 - Arquivos ficam no bucket privado `documentos`; fotos são reduzidas no navegador antes do envio
   (limite de 4,5 MB da Vercel) e abertas por `/arquivos/...`, que gera um link assinado de 2 minutos.

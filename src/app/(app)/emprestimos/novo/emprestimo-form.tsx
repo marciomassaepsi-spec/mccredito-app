@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
+import { Selo } from "@/components/app/selo";
 import { AreaTexto, BotaoEnviar, Campo, Entrada, useAcaoSemReset, MensagemForm, Selecao } from "@/components/app/form";
 import { Button } from "@/components/ui/button";
-import { montarParcelas, NOME_PERIODICIDADE, NOME_SISTEMA, umMesDepois } from "@/lib/emprestimos";
+import { NOME_PERIODICIDADE, NOME_SISTEMA, planejarEmprestimo, umMesDepois, type ModoCalculo } from "@/lib/emprestimos";
 import { cetMensal, mensalParaAnual, type Periodicidade, type Sistema } from "@/lib/finance";
 import { formatCentavos, formatData, formatPercentual, parsePercentual, parseReaisParaCentavos } from "@/lib/format";
 
@@ -34,6 +35,10 @@ export function EmprestimoForm({ clientes, hoje, inicial }: Props) {
   const [clienteId, setClienteId] = useState(inicial.clienteId);
   const [valor, setValor] = useState(inicial.valor);
   const [taxa, setTaxa] = useState(inicial.taxa);
+  const [modo, setModo] = useState<ModoCalculo>("taxa");
+  const [parcela, setParcela] = useState("");
+  const [emAndamento, setEmAndamento] = useState(false);
+  const [jaPagas, setJaPagas] = useState("");
   const [qtd, setQtd] = useState(inicial.parcelas);
   const [sistema, setSistema] = useState<Sistema>(inicial.sistema);
   const [periodicidade, setPeriodicidade] = useState<Periodicidade>("mensal");
@@ -43,32 +48,42 @@ export function EmprestimoForm({ clientes, hoje, inicial }: Props) {
   const [observacoes, setObservacoes] = useState("");
 
   const principal = parseReaisParaCentavos(valor);
-  const taxaNum = parsePercentual(taxa);
+  const taxaNum = modo === "taxa" ? parsePercentual(taxa) : null;
+  const parcelaNum = modo === "parcela" ? parseReaisParaCentavos(parcela) : null;
   const n = /^\d+$/.test(qtd) ? Number(qtd) : null;
+  const pagas = emAndamento && /^\d+$/.test(jaPagas.trim()) ? Number(jaPagas) : emAndamento && jaPagas.trim() !== "" ? null : 0;
 
   const erros: Record<string, string | undefined> = {
     cliente_id: clienteId ? undefined : "Escolha o cliente.",
     valor: principal && principal > 0 ? undefined : "Digite o valor, ex.: 1.500,00",
-    taxa: taxaNum !== null && taxaNum <= 10 ? undefined : "Digite a taxa, ex.: 9,99",
+    taxa: modo === "parcela" || (taxaNum !== null && taxaNum <= 10) ? undefined : "Digite a taxa, ex.: 9,99",
+    parcela: modo === "taxa" || (parcelaNum !== null && parcelaNum > 0) ? undefined : "Digite a parcela, ex.: 344,00",
     qtd_parcelas: n && n >= 1 && n <= 360 ? undefined : "De 1 a 360.",
+    ja_pagas: pagas !== null && (n === null || pagas < n) ? undefined : "Menor que o total de parcelas.",
     primeiro_vencimento: vencimento && vencimento >= liberado ? undefined : "Não pode ser antes da liberação.",
   };
   const valido = Object.values(erros).every((e) => !e);
 
   const simulacao = useMemo(() => {
-    if (!valido || principal === null || taxaNum === null || n === null) return null;
-    const parcelas = montarParcelas({
+    if (!valido || principal === null || n === null) return null;
+    const plano = planejarEmprestimo({
+      modo,
       sistema,
       valorCentavos: principal,
       taxaMensal: taxaNum,
+      parcelaCentavos: parcelaNum,
       qtdParcelas: n,
       primeiroVencimento: vencimento,
       periodicidade,
     });
+    if (!plano) return null;
+    const { parcelas, taxaMensal } = plano;
     const total = parcelas.reduce((s, p) => s + p.valor_centavos, 0);
     const cet = cetMensal(principal, parcelas.map((p) => p.valor_centavos), periodicidade);
-    return { parcelas, total, juros: total - principal, cet };
-  }, [valido, principal, taxaNum, n, sistema, vencimento, periodicidade]);
+    return { parcelas, taxaMensal, total, juros: total - principal, cet };
+  }, [valido, principal, taxaNum, parcelaNum, modo, n, sistema, vencimento, periodicidade]);
+  // Parcela informada que não fecha com o valor emprestado
+  const parcelaNaoFecha = valido && modo === "parcela" && simulacao === null;
 
   function mudarLiberacao(data: string) {
     setLiberado(data);
@@ -101,17 +116,55 @@ export function EmprestimoForm({ clientes, hoje, inicial }: Props) {
           <Campo id="valor" rotulo="Valor emprestado" erro={erro("valor")} className="col-span-2 sm:col-span-1">
             <Entrada id="valor" name="valor" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} erro={erro("valor")} />
           </Campo>
-          <Campo id="taxa" rotulo="Taxa ao mês (%)" erro={erro("taxa")}>
-            <Entrada id="taxa" name="taxa" inputMode="decimal" value={taxa} onChange={(e) => setTaxa(e.target.value)} erro={erro("taxa")} />
-          </Campo>
+          {modo === "taxa" ? (
+            <Campo id="taxa" rotulo="Taxa ao mês (%)" erro={erro("taxa")}>
+              <Entrada id="taxa" name="taxa" inputMode="decimal" value={taxa} onChange={(e) => setTaxa(e.target.value)} erro={erro("taxa")} />
+            </Campo>
+          ) : (
+            <Campo id="parcela" rotulo="Valor da parcela" erro={erro("parcela")}>
+              <Entrada
+                id="parcela"
+                name="parcela"
+                inputMode="decimal"
+                placeholder="344,00"
+                value={parcela}
+                onChange={(e) => setParcela(e.target.value)}
+                erro={erro("parcela")}
+              />
+            </Campo>
+          )}
           <Campo id="qtd_parcelas" rotulo="Parcelas" erro={erro("qtd_parcelas")}>
             <Entrada id="qtd_parcelas" name="qtd_parcelas" inputMode="numeric" value={qtd} onChange={(e) => setQtd(e.target.value)} erro={erro("qtd_parcelas")} />
           </Campo>
         </div>
 
+        <input type="hidden" name="modo" value={modo} />
+        <button
+          type="button"
+          className="-mt-2 justify-self-start text-sm font-bold text-primary"
+          onClick={() => {
+            setModo(modo === "taxa" ? "parcela" : "taxa");
+            setSistema("price");
+          }}
+        >
+          {modo === "taxa" ? "Sei o valor da parcela, não a taxa" : "Prefiro informar a taxa"}
+        </button>
+        {parcelaNaoFecha && (
+          <p role="alert" className="-mt-2 text-sm font-semibold text-late">
+            Com essa parcela o total fica abaixo do valor emprestado. Confira os valores.
+          </p>
+        )}
+
         <div className="grid grid-cols-2 gap-3">
           <Campo id="sistema" rotulo="Sistema">
-            <Selecao id="sistema" name="sistema" value={sistema} onChange={(e) => setSistema(e.target.value as Sistema)}>
+            {modo === "parcela" && <input type="hidden" name="sistema" value="price" />}
+            <Selecao
+              id="sistema"
+              name={modo === "parcela" ? undefined : "sistema"}
+              value={modo === "parcela" ? "price" : sistema}
+              disabled={modo === "parcela"}
+              onChange={(e) => setSistema(e.target.value as Sistema)}
+            >
               {(Object.keys(NOME_SISTEMA) as Sistema[]).map((s) => (
                 <option key={s} value={s}>
                   {NOME_SISTEMA[s]}
@@ -143,6 +196,41 @@ export function EmprestimoForm({ clientes, hoje, inicial }: Props) {
               erro={erro("primeiro_vencimento")}
             />
           </Campo>
+        </div>
+
+        <div className="grid gap-3 rounded-2xl border bg-card p-4">
+          <label className="flex items-start gap-3 font-semibold">
+            <input
+              type="checkbox"
+              className="mt-1 size-5 shrink-0 accent-primary"
+              checked={emAndamento}
+              onChange={(e) => setEmAndamento(e.target.checked)}
+            />
+            <span>Este empréstimo começou antes do app e já tem parcelas pagas</span>
+          </label>
+          {emAndamento && (
+            <>
+              <Campo
+                id="ja_pagas"
+                rotulo="Parcelas já pagas"
+                erro={erro("ja_pagas")}
+                dica="Entram como recebidas na data de cada vencimento. Use a data do empréstimo e do 1º vencimento de verdade, mesmo que já tenham passado."
+              >
+                <Entrada
+                  id="ja_pagas"
+                  name="ja_pagas"
+                  inputMode="numeric"
+                  placeholder="0"
+                  value={jaPagas}
+                  onChange={(e) => setJaPagas(e.target.value)}
+                  erro={erro("ja_pagas")}
+                />
+              </Campo>
+              <Link href="/emprestimos/importar" className="text-sm font-bold text-primary">
+                Tem vários? Importe todos de uma planilha
+              </Link>
+            </>
+          )}
         </div>
 
         <Campo id="observacoes" rotulo="Observações (opcional)">
@@ -192,8 +280,12 @@ export function EmprestimoForm({ clientes, hoje, inicial }: Props) {
                     [
                       ["Valor liberado", formatCentavos(principal ?? 0)],
                       ["Liberação", formatData(liberado)],
-                      ["Taxa", `${formatPercentual(taxaNum ?? 0)} ao mês · ${NOME_SISTEMA[sistema]}`],
+                      [
+                        modo === "parcela" ? "Taxa (pela parcela)" : "Taxa",
+                        `${formatPercentual(simulacao.taxaMensal)} ao mês · ${NOME_SISTEMA[modo === "parcela" ? "price" : sistema]}`,
+                      ],
                       ["Parcelas", `${n} · ${NOME_PERIODICIDADE[periodicidade].toLowerCase()}`],
+                      ...(pagas ? [["Já pagas", `${pagas} de ${n}`]] : []),
                       ["Total a receber", formatCentavos(simulacao.total)],
                       ["Total de juros", formatCentavos(simulacao.juros)],
                       ...(simulacao.cet !== null
@@ -217,7 +309,10 @@ export function EmprestimoForm({ clientes, hoje, inicial }: Props) {
                       <span className="text-muted-foreground">
                         {p.numero}ª · {formatData(p.vencimento)}
                       </span>
-                      <span className="font-bold">{formatCentavos(p.valor_centavos)}</span>
+                      <span className="flex items-center gap-2 font-bold">
+                        {pagas !== null && p.numero <= pagas && <Selo tom="ok">Paga</Selo>}
+                        {formatCentavos(p.valor_centavos)}
+                      </span>
                     </li>
                   ))}
                 </ol>

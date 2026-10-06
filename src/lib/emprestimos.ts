@@ -1,8 +1,12 @@
 import {
+  descobrirTaxa,
   diasEntre,
   gerarCronograma,
   gerarVencimentos,
+  tabelaPrice,
   taxaDoPeriodo,
+  taxaMensalDoPeriodo,
+  type Cronograma,
   type Periodicidade,
   type Sistema,
 } from "./finance";
@@ -34,7 +38,60 @@ export function montarParcelas(dados: {
       ? dados.taxaMensal / ({ mensal: 1, quinzenal: 2, semanal: 52 / 12 } as const)[dados.periodicidade]
       : taxaDoPeriodo(dados.taxaMensal, dados.periodicidade);
   const cronograma = gerarCronograma(dados.sistema, dados.valorCentavos, taxa, dados.qtdParcelas);
-  const datas = gerarVencimentos(dados.primeiroVencimento, dados.qtdParcelas, dados.periodicidade);
+  return comDatas(cronograma, dados.primeiroVencimento, dados.periodicidade);
+}
+
+/**
+ * Para contratos que já tinham a parcela combinada (ex.: R$ 1.500 em 6x de
+ * R$ 344,00): descobre a taxa da Tabela Price e monta o cronograma com a
+ * parcela exata. A última parcela acerta os centavos para o saldo fechar.
+ * Devolve null quando a parcela não fecha (total menor que o emprestado, ou
+ * taxa acima de 1000% ao mês).
+ */
+export function montarParcelasPelaParcela(dados: {
+  valorCentavos: number;
+  parcelaCentavos: number;
+  qtdParcelas: number;
+  primeiroVencimento: string;
+  periodicidade: Periodicidade;
+}): { taxaMensal: number; parcelas: ParcelaNova[] } | null {
+  const taxaPeriodo = descobrirTaxa(dados.valorCentavos, dados.parcelaCentavos, dados.qtdParcelas);
+  if (taxaPeriodo === null || taxaPeriodo < 0) return null;
+  const taxaMensal = taxaMensalDoPeriodo(taxaPeriodo, dados.periodicidade);
+  if (taxaMensal > 10) return null;
+  const cronograma = tabelaPrice(dados.valorCentavos, taxaPeriodo, dados.qtdParcelas, dados.parcelaCentavos);
+  return { taxaMensal, parcelas: comDatas(cronograma, dados.primeiroVencimento, dados.periodicidade) };
+}
+
+export type ModoCalculo = "taxa" | "parcela";
+
+/**
+ * Cronograma de um empréstimo novo, pela taxa ou pelo valor da parcela.
+ * Pelo valor da parcela o sistema é sempre Price (parcelas iguais).
+ * Devolve null quando a parcela não fecha com o valor emprestado.
+ */
+export function planejarEmprestimo(d: {
+  modo: ModoCalculo;
+  sistema: Sistema;
+  valorCentavos: number;
+  taxaMensal: number | null;
+  parcelaCentavos: number | null;
+  qtdParcelas: number;
+  primeiroVencimento: string;
+  periodicidade: Periodicidade;
+}): { taxaMensal: number; sistema: Sistema; parcelas: ParcelaNova[] } | null {
+  const base = { valorCentavos: d.valorCentavos, qtdParcelas: d.qtdParcelas, primeiroVencimento: d.primeiroVencimento, periodicidade: d.periodicidade };
+  if (d.modo === "parcela") {
+    if (d.parcelaCentavos === null) return null;
+    const plano = montarParcelasPelaParcela({ ...base, parcelaCentavos: d.parcelaCentavos });
+    return plano && { ...plano, sistema: "price" };
+  }
+  if (d.taxaMensal === null) return null;
+  return { taxaMensal: d.taxaMensal, sistema: d.sistema, parcelas: montarParcelas({ ...base, sistema: d.sistema, taxaMensal: d.taxaMensal }) };
+}
+
+function comDatas(cronograma: Cronograma, primeiroVencimento: string, periodicidade: Periodicidade): ParcelaNova[] {
+  const datas = gerarVencimentos(primeiroVencimento, cronograma.linhas.length, periodicidade);
   return cronograma.linhas.map((l, i) => ({
     numero: l.numero,
     vencimento: datas[i],
