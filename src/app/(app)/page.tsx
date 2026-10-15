@@ -1,10 +1,11 @@
-import { Calculator, Download, FileText, Megaphone, UserPlus } from "lucide-react";
+import { Calculator, ChevronRight, Download, FileText, Megaphone, UserPlus } from "lucide-react";
 import Link from "next/link";
 
 import { GraficoAtraso, GraficoMensal } from "@/components/app/graficos";
 import { formatCentavos, formatDataExtenso, formatPercentual, hojeISO } from "@/lib/format";
 import { calcularIndicadores, ultimosMeses } from "@/lib/painel";
 import { requireUser } from "@/lib/supabase/server";
+import { resumir } from "@/lib/vendas";
 
 const ATALHOS = [
   { href: "/cobranca", rotulo: "Cobrança de hoje", Icone: Megaphone },
@@ -30,7 +31,8 @@ export default async function InicioPage() {
   const inicio = meses[0].inicio;
   const fim = meses[meses.length - 1].fim;
 
-  const [{ data: ativos }, { data: abertas }, { data: previstas }, { data: pagamentos }, { data: config }] = await Promise.all([
+  const mesAtualJanela = meses[meses.length - 1];
+  const [{ data: ativos }, { data: abertas }, { data: previstas }, { data: pagamentos }, { data: config }, { data: vendasMes }] = await Promise.all([
     supabase.from("emprestimos").select("valor_centavos").eq("status", "ativo"),
     supabase
       .from("parcelas")
@@ -50,7 +52,15 @@ export default async function InicioPage() {
       .gte("pago_em", inicio)
       .lte("pago_em", fim),
     supabase.from("configuracoes").select("limite_contratos_ativos").maybeSingle(),
+    supabase
+      .from("emprestimos")
+      .select("valor_centavos, taxa_percentual, parcelas(valor_centavos, juros_centavos, pago_centavos)")
+      .gte("liberado_em", mesAtualJanela.inicio)
+      .lte("liberado_em", mesAtualJanela.fim)
+      .neq("status", "cancelado")
+      .is("renegociado_de", null),
   ]);
+  const vendas = resumir(vendasMes ?? []);
 
   const ind = calcularIndicadores({
     hoje,
@@ -95,6 +105,21 @@ export default async function InicioPage() {
         />
         <Indicador rotulo="Ticket médio" valor={formatCentavos(ind.ticketMedioCentavos)} detalhe="valor emprestado por contrato ativo" />
       </section>
+
+      <Link
+        href="/vendas"
+        className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-2xl border bg-card p-4 outline-none hover:border-primary focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <span className="grid gap-0.5">
+          <span className="text-sm font-bold text-muted-foreground">Vendido em {mesAtual}</span>
+          <span className="font-heading text-[clamp(1.1rem,5.4vw,1.5rem)] font-black whitespace-nowrap">{formatCentavos(vendas.emprestadoCentavos)}</span>
+          <span className="num text-xs text-muted-foreground">
+            {vendas.contratos} {vendas.contratos === 1 ? "contrato" : "contratos"} · {formatCentavos(vendas.jurosCentavos)} de juros
+          </span>
+          <span className="text-sm font-bold text-primary">Ver vendas mês a mês</span>
+        </span>
+        <ChevronRight className="size-6 text-primary" aria-hidden />
+      </Link>
 
       <section className="rounded-2xl border bg-card p-4">
         <div className="flex items-baseline justify-between gap-3">

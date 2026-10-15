@@ -181,3 +181,129 @@ export function GraficoAtraso({ faixas }: { faixas: Faixa[] }) {
     </figure>
   );
 }
+
+type MesVenda = { chave: string; rotulo: string; emprestado: number; juros: number; contratos: number };
+
+const COR_EMPRESTADO = "var(--primary)";
+const COR_JUROS = "var(--gold)";
+
+/**
+ * Colunas empilhadas por mês: valor emprestado (verde, embaixo) + juros do
+ * contrato (dourado, em cima) = total a receber daquelas vendas. Um eixo só,
+ * legenda sempre visível, dica ao passar o dedo ou o mouse, e cada mês é um
+ * link que abre os contratos daquele mês.
+ */
+export function GraficoVendas({ meses, selecionado, hrefMes }: { meses: MesVenda[]; selecionado: string | null; hrefMes: string }) {
+  const [ativo, setAtivo] = useState<number | null>(null);
+  const maximo = Math.max(...meses.map((m) => m.emprestado + m.juros), 0);
+  const marcas = marcasEixo(maximo);
+  const topo = marcas[marcas.length - 1] || 1;
+  const altura = (v: number) => `${(v / topo) * 100}%`;
+  // Com muitos meses, o rótulo de baixo mostra só alguns, para não encavalar
+  const passoRotulo = meses.length > 12 ? 3 : meses.length > 8 ? 2 : 1;
+  const m = ativo !== null ? meses[ativo] : null;
+
+  return (
+    <figure className="grid gap-3 rounded-2xl border bg-card p-4">
+      <figcaption className="grid gap-2">
+        <h2 className="text-lg font-extrabold">Vendas por mês</h2>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <i className="size-3 rounded-[3px]" style={{ background: COR_EMPRESTADO }} aria-hidden /> Emprestado
+          </span>
+          <span className="flex items-center gap-1.5">
+            <i className="size-3 rounded-[3px]" style={{ background: COR_JUROS }} aria-hidden /> Juros do contrato
+          </span>
+        </div>
+      </figcaption>
+
+      <div className="relative mt-4 grid grid-cols-[auto_1fr] gap-x-2">
+        <div className="num relative h-52 text-right text-[11px] text-muted-foreground" aria-hidden>
+          {marcas.map((v) => (
+            <span key={v} className="absolute right-0 -translate-y-1/2 whitespace-nowrap" style={{ bottom: altura(v) }}>
+              {compacto(v)}
+            </span>
+          ))}
+          <span className="invisible block">{compacto(topo)}</span>
+        </div>
+
+        <div className="relative h-52">
+          {marcas.map((v) => (
+            <div key={v} className="absolute inset-x-0 border-t border-border" style={{ bottom: altura(v) }} aria-hidden />
+          ))}
+          <div className="absolute inset-0 flex items-stretch">
+            {meses.map((mes, i) => {
+              const total = mes.emprestado + mes.juros;
+              return (
+                <a
+                  key={mes.chave}
+                  href={`${hrefMes}${mes.chave}#mes`}
+                  aria-label={`${mes.rotulo}: emprestado ${formatCentavos(mes.emprestado)}, juros ${formatCentavos(mes.juros)}, ${mes.contratos} contratos. Ver os contratos do mês.`}
+                  aria-current={selecionado === mes.chave ? "true" : undefined}
+                  onPointerEnter={() => setAtivo(i)}
+                  onPointerLeave={() => setAtivo(null)}
+                  onFocus={() => setAtivo(i)}
+                  onBlur={() => setAtivo(null)}
+                  className={cn(
+                    "relative flex flex-1 flex-col items-center justify-end rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                    (ativo === i || selecionado === mes.chave) && "bg-muted/70",
+                  )}
+                >
+                  {total > 0 && (
+                    <span className="flex w-full max-w-[22px] flex-col gap-[2px]" style={{ height: altura(total) }}>
+                      {mes.juros > 0 && (
+                        <span className="w-full rounded-t-[4px]" style={{ flexGrow: mes.juros, flexBasis: 0, minHeight: 2, background: COR_JUROS }} />
+                      )}
+                      <span
+                        className={cn("w-full", mes.juros > 0 ? "" : "rounded-t-[4px]")}
+                        style={{ flexGrow: mes.emprestado, flexBasis: 0, minHeight: 2, background: COR_EMPRESTADO }}
+                      />
+                    </span>
+                  )}
+                </a>
+              );
+            })}
+          </div>
+
+          {m && ativo !== null && (
+            <div
+              role="status"
+              className="pointer-events-none absolute -top-2 z-10 min-w-40 rounded-xl border bg-popover px-3 py-2 text-sm shadow-md"
+              style={{
+                left: `${((ativo + 0.5) / meses.length) * 100}%`,
+                transform: `translate(${ativo < meses.length / 2 ? "-15%" : "-85%"}, -100%)`,
+              }}
+            >
+              <p className="text-xs font-bold text-muted-foreground">
+                {m.rotulo} · {m.contratos} {m.contratos === 1 ? "contrato" : "contratos"}
+              </p>
+              <p className="flex items-center gap-2 whitespace-nowrap">
+                <i className="size-2.5 rounded-[2px]" style={{ background: COR_EMPRESTADO }} aria-hidden />
+                <b className="num">{formatCentavos(m.emprestado)}</b>
+                <span className="text-muted-foreground">emprestado</span>
+              </p>
+              <p className="flex items-center gap-2 whitespace-nowrap">
+                <i className="size-2.5 rounded-[2px]" style={{ background: COR_JUROS }} aria-hidden />
+                <b className="num">{formatCentavos(m.juros)}</b>
+                <span className="text-muted-foreground">de juros</span>
+              </p>
+              <p className="num mt-0.5 border-t pt-0.5 whitespace-nowrap text-muted-foreground">
+                total <b className="text-foreground">{formatCentavos(m.emprestado + m.juros)}</b>
+              </p>
+            </div>
+          )}
+        </div>
+
+        <span aria-hidden />
+        <div className="flex pt-1.5 text-[11px] text-muted-foreground" aria-hidden>
+          {meses.map((mes, i) => (
+            <span key={mes.chave} className={cn("flex-1 text-center", selecionado === mes.chave && "font-bold text-foreground")}>
+              {i % passoRotulo === (meses.length - 1) % passoRotulo ? (passoRotulo > 1 ? mes.rotulo.slice(0, 3) : mes.rotulo) : ""}
+            </span>
+          ))}
+        </div>
+      </div>
+      <p className="text-xs text-muted-foreground">Toque num mês para ver os contratos.</p>
+    </figure>
+  );
+}

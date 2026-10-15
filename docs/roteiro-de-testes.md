@@ -92,6 +92,10 @@ número do passo e o que apareceu na tela.
 
 ## 9. Painel, backup e histórico
 
+- [ ] **9.0** No **Painel**, toque em **Vendido em (mês)**. A tela **Vendas** mostra o total emprestado no
+      período, o gráfico mês a mês (verde = emprestado, dourado = juros) e a lista dos meses. Toque num
+      mês: aparecem os contratos daquele mês, com valor, parcelas e juros de cada um.
+
 - [ ] **9.1** **Configurações → Exportar e backup → Baixar backup**. Abra o arquivo no Excel ou no
       Google Planilhas: tem abas Sobre, Clientes, Empréstimos, Parcelas, Pagamentos e Contatos, com
       datas e valores em reais.

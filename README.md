@@ -15,7 +15,8 @@ cobrança e calculadora de juros. Funciona no navegador e pode ser instalado no 
 | 6 | Cobrança: tela do dia, WhatsApp com mensagem pronta, chave PIX, régua, promessas e visitas | Pronta |
 | 7 | Painel, exportação, backup e histórico de alterações | Pronta |
 | 8 | Revisão de segurança, direitos do cliente (LGPD) e roteiro de testes | Pronta |
-| 9 | Contratos de antes do app: parcelas já pagas, valor da parcela e importação por planilha | **Pronta** |
+| 9 | Contratos de antes do app: parcelas já pagas, valor da parcela e importação por planilha | Pronta |
+| 10 | Vendas por mês: quanto foi emprestado e os juros desses contratos, com gráfico e detalhe do mês | **Pronta** |
 
 Depois de publicar, siga o [roteiro de testes](docs/roteiro-de-testes.md) (uns 20 minutos).
 
@@ -108,6 +109,15 @@ As parcelas já pagas entram como recebidas na data do vencimento de cada uma, c
 "Paga antes do cadastro no app". Se uma delas foi paga só em parte, registre o resto depois em
 **Receber**. O CPF é opcional na planilha; complete na ficha do cliente antes de gerar um contrato
 novo para ele.
+
+## Vendas por mês
+
+No **Painel**, o cartão **Vendido em (mês)** abre a tela **Vendas**: quanto você emprestou em cada mês
+(pela data em que o dinheiro foi entregue) e quanto de juros esses contratos geram. Mostra o total
+do período (6, 12 ou 24 meses), a comparação com o mês anterior, ticket médio, taxa média e um
+gráfico com o valor emprestado e os juros de cada mês. Toque num mês para ver os contratos dele,
+quanto já foi recebido e quanto rende no total. Os juros são os combinados no contrato, sem multa e
+mora. Empréstimos cancelados e renegociações (que não são dinheiro novo) não contam como venda.
 
 ## Cobrança
 
@@ -234,6 +244,9 @@ npm run typecheck && npm run lint
   não desfaz as outras. `criar_emprestimo_em_andamento` cria o empréstimo e dá baixa nas primeiras
   parcelas. Pelo valor da parcela, `montarParcelasPelaParcela` acha a taxa da Price e usa a parcela
   exata, com a última acertando os centavos.
+- `src/lib/vendas.ts` agrupa as vendas por mês da liberação (emprestado, juros do contrato,
+  recebido, ticket e taxa média ponderada); `/vendas` mostra o gráfico de colunas empilhadas
+  (`GraficoVendas`) e o detalhe do mês em `?mes=aaaa-mm`.
 - `src/lib/contrato.ts` + `contrato-pdf.ts` modelo com `{{variaveis}}` e geração do PDF (pdf-lib).
 - Arquivos ficam no bucket privado `documentos`; fotos são reduzidas no navegador antes do envio
   (limite de 4,5 MB da Vercel) e abertas por `/arquivos/...`, que gera um link assinado de 2 minutos.
