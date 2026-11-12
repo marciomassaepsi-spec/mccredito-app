@@ -15,7 +15,7 @@ export async function carregarDadosContrato(
     supabase
       .from("emprestimos")
       .select(
-        "id, valor_centavos, taxa_percentual, sistema, periodicidade, liberado_em, clientes(nome, cpf, endereco), parcelas(numero, vencimento, valor_centavos)",
+        "id, valor_centavos, taxa_percentual, sistema, periodicidade, liberado_em, renegociado_de, clientes(nome, cpf, endereco), parcelas(numero, vencimento, valor_centavos)",
       )
       .eq("id", emprestimoId)
       .order("numero", { referencedTable: "parcelas" })
@@ -28,6 +28,7 @@ export async function carregarDadosContrato(
       .maybeSingle(),
   ]);
   if (!e || !e.clientes || !config) return null;
+  const renegociacao = e.renegociado_de ? await carregarRenegociacao(supabase, e.id, e.renegociado_de, e.valor_centavos) : null;
 
   return {
     modelo: modeloEmUso(config.modelo_contrato),
@@ -53,9 +54,29 @@ export async function carregarDadosContrato(
         moraPercentual: Number(config.mora_percentual_mes),
       },
       parcelas: e.parcelas,
+      renegociacao,
       hoje: hojeISO(),
     },
   };
+}
+
+/**
+ * Contrato anterior e dinheiro novo de uma renegociação. Sem a coluna
+ * dinheiro_novo_centavos (banco ainda não atualizado), conta como sem dinheiro novo.
+ */
+async function carregarRenegociacao(
+  supabase: SupabaseClient<Database>,
+  id: string,
+  anteriorId: string,
+  valorCentavos: number,
+): Promise<NonNullable<DadosContrato["renegociacao"]> | null> {
+  const [{ data: anterior }, { data: novo }] = await Promise.all([
+    supabase.from("emprestimos").select("liberado_em").eq("id", anteriorId).maybeSingle(),
+    supabase.from("emprestimos").select("dinheiro_novo_centavos").eq("id", id).maybeSingle(),
+  ]);
+  if (!anterior) return null;
+  const dinheiroNovo = novo?.dinheiro_novo_centavos ?? 0;
+  return { contratoAnteriorEm: anterior.liberado_em, saldoAnteriorCentavos: valorCentavos - dinheiroNovo, dinheiroNovoCentavos: dinheiroNovo };
 }
 
 /** Nome do arquivo: "contrato-josiane-ferreira-2026-10-05.pdf" */

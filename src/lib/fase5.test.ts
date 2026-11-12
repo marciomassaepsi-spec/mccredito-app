@@ -271,6 +271,50 @@ describe("contrato", () => {
     expect(texto).toContain("**CREDOR:** MC Créditos, inscrito no CPF/CNPJ sob o nº 11.222.333/0001-81, com endereço em Salvador - BA");
   });
 
+  it("empréstimo normal: cláusula 1 diz que o valor foi entregue e o parágrafo da renegociação some", () => {
+    const { blocos } = preencherModelo(MODELO_PADRAO, montarVariaveis(dados));
+    const textos = blocos.map((b) => ("texto" in b ? b.texto : ""));
+    expect(textos).toContain(
+      "O CREDOR empresta ao DEVEDOR a quantia de **R$ 1.500,00** (mil e quinhentos reais), entregue em 05/10/2026, da qual o DEVEDOR dá plena quitação ao assinar este contrato.",
+    );
+    expect(textos.some((t) => t.includes("substitui"))).toBe(false);
+    expect(blocos.some((b) => "texto" in b && b.texto.trim() === "")).toBe(false);
+  });
+
+  it("renegociação: cláusula 1 explica saldo anterior e dinheiro novo", () => {
+    const reneg: DadosContrato = {
+      ...dados,
+      emprestimo: { ...dados.emprestimo, valorCentavos: 100000, taxaPercentual: 12.978, liberadoEm: "2026-11-12" },
+      renegociacao: { contratoAnteriorEm: "2026-06-20", saldoAnteriorCentavos: 50000, dinheiroNovoCentavos: 50000 },
+    };
+    const { blocos, desconhecidas } = preencherModelo(MODELO_PADRAO, montarVariaveis(reneg));
+    expect(desconhecidas).toEqual([]);
+    const textos = blocos.map((b) => ("texto" in b ? b.texto : ""));
+    expect(textos).toContain(
+      "O CREDOR empresta ao DEVEDOR a quantia de **R$ 1.000,00** (mil reais), formada pelo saldo do contrato anterior e pelo valor novo, como descrito no parágrafo abaixo.",
+    );
+    expect(textos).toContain(
+      "Este contrato substitui o contrato de 20/06/2026, que fica encerrado. O valor de R$ 1.000,00 corresponde ao saldo anterior de R$ 500,00, que o DEVEDOR reconhece como devido, somado a R$ 500,00 (quinhentos reais) entregues ao DEVEDOR em 12/11/2026, dos quais ele dá plena quitação ao assinar este contrato.",
+    );
+    // Sem dinheiro novo
+    const semNovo = montarVariaveis({ ...reneg, renegociacao: { contratoAnteriorEm: "2026-06-20", saldoAnteriorCentavos: 100000, dinheiroNovoCentavos: 0 } });
+    expect(semNovo.renegociacao).toBe(
+      "Este contrato substitui o contrato de 20/06/2026, que fica encerrado. O valor de R$ 1.000,00 corresponde ao saldo anterior, que o DEVEDOR reconhece como devido; nenhum valor novo foi entregue.",
+    );
+    expect(montarVariaveis(dados).renegociacao).toBe("");
+  });
+
+  it("modelo salvo igual ao padrão de antes da renegociação passa a usar o novo", () => {
+    const anterior = MODELO_PADRAO.replace(
+      "{{entrega}}.\n\n{{renegociacao}}\n",
+      "entregue em {{data_liberacao}}, da qual o DEVEDOR dá plena quitação ao assinar este contrato.\n",
+    );
+    expect(anterior).not.toBe(MODELO_PADRAO);
+    expect(ehModeloPadrao(anterior)).toBe(true);
+    expect(modeloEmUso(anterior)).toBe(MODELO_PADRAO);
+    expect(modeloEmUso(`${anterior}\nCláusula extra do dono.`)).not.toBe(MODELO_PADRAO);
+  });
+
   it("aponta variável digitada errado", () => {
     expect(preencherModelo("Olá {{cliente.nme}}", montarVariaveis(dados)).desconhecidas).toEqual(["cliente.nme"]);
   });

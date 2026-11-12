@@ -3,8 +3,11 @@
  * liberação) e quanto de juros esses contratos geram.
  *
  * - Empréstimos cancelados não contam (o dinheiro não saiu, ou voltou).
- * - Renegociações não contam: não é dinheiro novo, é a dívida antiga com novo
- *   prazo. O contrato original continua contando no mês em que foi feito.
+ * - Renegociação só conta o dinheiro novo entregue ao cliente, no mês da
+ *   renegociação, com a parte dos juros do novo contrato que cabe a ele
+ *   (juros × dinheiro novo ÷ valor do novo contrato). O saldo antigo que foi
+ *   para o novo contrato não conta de novo: o contrato original já contou no
+ *   mês em que foi feito. Renegociação sem dinheiro novo fica de fora.
  * - "Juros" são os juros combinados no contrato (soma dos juros das parcelas),
  *   sem multa e mora, que dependem de atraso e não da venda.
  */
@@ -19,6 +22,8 @@ export type EmprestimoVenda = {
   qtd_parcelas: number;
   status: string;
   renegociado_de: string | null;
+  /** Renegociação: dinheiro novo entregue ao cliente; null se não é renegociação */
+  dinheiro_novo_centavos: number | null;
   clientes: { nome: string } | null;
   parcelas: Array<{ valor_centavos: number; juros_centavos: number; pago_centavos: number }>;
 };
@@ -38,23 +43,39 @@ export type ResumoVendas = {
 
 export type MesVendas = ResumoVendas & { chave: string; rotulo: string };
 
-/** Só o que é venda: sem cancelados e sem renegociações. */
-export function ehVenda(e: Pick<EmprestimoVenda, "status" | "renegociado_de">): boolean {
-  return e.status !== "cancelado" && e.renegociado_de === null;
+type DadosVenda = Pick<EmprestimoVenda, "valor_centavos" | "taxa_percentual" | "parcelas" | "renegociado_de" | "dinheiro_novo_centavos">;
+
+/** Só o que é venda: sem cancelados, e renegociação só com dinheiro novo. */
+export function ehVenda(e: Pick<EmprestimoVenda, "status" | "renegociado_de" | "dinheiro_novo_centavos">): boolean {
+  if (e.status === "cancelado") return false;
+  return e.renegociado_de === null || (e.dinheiro_novo_centavos ?? 0) > 0;
 }
 
-export function resumir(emprestimos: Array<Pick<EmprestimoVenda, "valor_centavos" | "taxa_percentual" | "parcelas">>): ResumoVendas {
+/**
+ * Quanto do contrato é venda. Contrato normal: tudo. Renegociação: só o
+ * dinheiro novo, e os juros (e o já recebido) na mesma proporção.
+ */
+export function parteVendida(e: DadosVenda): { emprestadoCentavos: number; jurosCentavos: number; recebidoCentavos: number } {
+  const juros = e.parcelas.reduce((s, p) => s + p.juros_centavos, 0);
+  const recebido = e.parcelas.reduce((s, p) => s + p.pago_centavos, 0);
+  if (e.renegociado_de === null) return { emprestadoCentavos: e.valor_centavos, jurosCentavos: juros, recebidoCentavos: recebido };
+  const novo = Math.max(0, Math.min(e.dinheiro_novo_centavos ?? 0, e.valor_centavos));
+  // Multiplica antes de dividir, para o arredondamento sair certo nos centavos
+  const proporcional = (centavos: number) => (e.valor_centavos > 0 ? Math.round((centavos * novo) / e.valor_centavos) : 0);
+  return { emprestadoCentavos: novo, jurosCentavos: proporcional(juros), recebidoCentavos: proporcional(recebido) };
+}
+
+export function resumir(emprestimos: DadosVenda[]): ResumoVendas {
   let emprestado = 0;
   let juros = 0;
   let recebido = 0;
   let taxaPonderada = 0;
   for (const e of emprestimos) {
-    emprestado += e.valor_centavos;
-    taxaPonderada += (e.taxa_percentual / 100) * e.valor_centavos;
-    for (const p of e.parcelas) {
-      juros += p.juros_centavos;
-      recebido += p.pago_centavos;
-    }
+    const parte = parteVendida(e);
+    emprestado += parte.emprestadoCentavos;
+    juros += parte.jurosCentavos;
+    recebido += parte.recebidoCentavos;
+    taxaPonderada += (e.taxa_percentual / 100) * parte.emprestadoCentavos;
   }
   return {
     contratos: emprestimos.length,

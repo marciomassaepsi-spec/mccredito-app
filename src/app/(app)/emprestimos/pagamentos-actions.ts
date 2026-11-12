@@ -10,9 +10,9 @@ import { BUCKET, guardarArquivo, lerArquivo, validarArquivo, type TipoDocumento 
 import { montarVariaveis, preencherModelo } from "@/lib/contrato";
 import { carregarDadosContrato, nomeArquivoContrato } from "@/lib/contrato-dados";
 import { gerarContratoPDF } from "@/lib/contrato-pdf";
-import { montarParcelas } from "@/lib/emprestimos";
 import { hojeISO, parsePercentual, parseReaisParaCentavos } from "@/lib/format";
 import { alocarRecebimento, encargosNaData, planoQuitacao } from "@/lib/pagamentos";
+import { detalheRenegociacao, observacaoRenegociacao, planejarRenegociacao, saldoParaRenegociar } from "@/lib/renegociacao";
 import { requireUser } from "@/lib/supabase/server";
 
 type Supabase = Awaited<ReturnType<typeof requireUser>>["supabase"];
@@ -177,28 +177,31 @@ export async function quitarEmprestimo(_anterior: EstadoForm, formData: FormData
 }
 
 // ---------------------------------------------------------------------------
-// Renegociação
+// Renegociação: o saldo em aberto (+ multa e mora, se o dono quiser) + dinheiro
+// novo vira um empréstimo novo, com as parcelas novas
 // ---------------------------------------------------------------------------
 const renegociacaoSchema = z
   .object({
     emprestimo_id: uuid,
-    valor: z
+    dinheiro_novo: z
       .string()
-      .transform((v) => parseReaisParaCentavos(v))
-      .refine((v): v is number => v !== null && v > 0, "Digite o novo valor."),
-    taxa: z
-      .string()
-      .transform((v) => parsePercentual(v))
-      .refine((v): v is number => v !== null && v <= 10, "Digite a taxa, ex.: 9,99"),
-    sistema: z.enum(["price", "sac", "simples"]),
-    qtd_parcelas: z.coerce.number().int().min(1, "Mínimo 1.").max(360, "Máximo 360."),
+      .default("")
+      .transform((v) => (v.trim() === "" ? 0 : parseReaisParaCentavos(v)))
+      .refine((v): v is number => v !== null && v >= 0, "Digite quanto vai mandar, ex.: 500,00 (ou 0)."),
+    somar_encargos: z.string().optional(),
+    modo: z.enum(["taxa", "parcela"]).catch("parcela"),
+    taxa: z.string().default(""),
+    parcela: z.string().default(""),
+    sistema: z.enum(["price", "sac", "simples"]).catch("price"),
+    qtd_parcelas: z.coerce.number().int("Número inteiro.").min(1, "Mínimo 1.").max(360, "Máximo 360."),
     periodicidade: z.enum(["mensal", "quinzenal", "semanal"]),
+    liberado_em: data,
     primeiro_vencimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Escolha a data."),
-    motivo: z.string().trim().min(3, "Escreva o motivo."),
+    observacao: z.string().trim().max(500, "Até 500 letras.").default(""),
   })
-  .refine((d) => d.primeiro_vencimento >= hojeISO(), {
+  .refine((d) => d.primeiro_vencimento >= d.liberado_em, {
     path: ["primeiro_vencimento"],
-    message: "O 1º vencimento não pode ser antes de hoje.",
+    message: "O 1º vencimento não pode ser antes da renegociação.",
   });
 
 export async function renegociarEmprestimo(_anterior: EstadoForm, formData: FormData): Promise<EstadoForm> {
@@ -207,34 +210,65 @@ export async function renegociarEmprestimo(_anterior: EstadoForm, formData: Form
   if (!dados.success) return falha(valores, "Confira os campos destacados.", errosDoZod(dados.error));
   const d = dados.data;
 
-  const { supabase } = await requireUser();
-  const { data: antigo } = await supabase.from("emprestimos").select("id, cliente_id").eq("id", d.emprestimo_id).maybeSingle();
-  if (!antigo) return falha(valores, "Empréstimo não encontrado.");
+  const taxaMensal = d.modo === "taxa" ? parsePercentual(d.taxa) : null;
+  const parcelaCentavos = d.modo === "parcela" ? parseReaisParaCentavos(d.parcela) : null;
+  if (d.modo === "taxa" && (taxaMensal === null || taxaMensal > 10)) {
+    return falha(valores, "Confira os campos destacados.", { taxa: "Digite a taxa, ex.: 9,99" });
+  }
+  if (d.modo === "parcela" && (parcelaCentavos === null || parcelaCentavos <= 0)) {
+    return falha(valores, "Confira os campos destacados.", { parcela: "Digite a parcela, ex.: 250,00" });
+  }
 
-  const parcelas = montarParcelas({
+  const { supabase } = await requireUser();
+  const { data: antigo } = await supabase
+    .from("emprestimos")
+    .select("id, cliente_id, status, liberado_em, parcelas(id, numero, vencimento, valor_centavos, pago_centavos, status)")
+    .eq("id", d.emprestimo_id)
+    .maybeSingle();
+  if (!antigo) return falha(valores, "Empréstimo não encontrado.");
+  if (antigo.status !== "ativo") return falha(valores, "Só dá para renegociar empréstimos ativos.");
+  if (d.liberado_em < antigo.liberado_em) {
+    return falha(valores, "Confira os campos destacados.", { liberado_em: "Não pode ser antes do empréstimo original." });
+  }
+
+  // Tudo recalculado aqui, com as parcelas e a configuração atuais
+  const { multa, mora } = await encargosDaConfig(supabase);
+  const saldo = saldoParaRenegociar(antigo.parcelas, d.liberado_em, multa, mora);
+  const r = planejarRenegociacao({
+    saldo,
+    somarEncargos: d.somar_encargos === "on",
+    dinheiroNovoCentavos: d.dinheiro_novo,
+    modo: d.modo,
     sistema: d.sistema,
-    valorCentavos: d.valor,
-    taxaMensal: d.taxa,
+    taxaMensal,
+    parcelaCentavos,
     qtdParcelas: d.qtd_parcelas,
     primeiroVencimento: d.primeiro_vencimento,
     periodicidade: d.periodicidade,
   });
+  if (!r.ok) return falha(valores, r.erro, r.campo === "geral" ? {} : { [r.campo]: r.erro });
+  const plano = r.plano;
+  // O novo leva "Renegociação: saldo … + … novos"; o antigo, "Renegociado: saldo … + … novos"
+  const observacao = observacaoRenegociacao(plano, d.observacao);
+  const noAntigo = [detalheRenegociacao(plano), d.observacao].filter(Boolean).join(". ");
 
   const { data: novoId, error } = await supabase.rpc("renegociar_emprestimo", {
     p_antigo: antigo.id,
     p_novo: {
       cliente_id: antigo.cliente_id,
-      valor_centavos: d.valor,
-      taxa_percentual: Math.round(d.taxa * 100 * 10000) / 10000,
-      sistema: d.sistema,
+      valor_centavos: plano.valorCentavos,
+      taxa_percentual: Math.round(plano.taxaMensal * 100 * 10000) / 10000,
+      sistema: plano.sistema,
       qtd_parcelas: d.qtd_parcelas,
       periodicidade: d.periodicidade,
-      liberado_em: hojeISO(),
+      liberado_em: d.liberado_em,
       primeiro_vencimento: d.primeiro_vencimento,
-      observacoes: `Renegociação do empréstimo anterior. ${d.motivo}`,
+      observacoes: observacao,
     },
-    p_parcelas: parcelas,
-    p_motivo: d.motivo,
+    p_parcelas: plano.parcelas,
+    p_encargos: plano.encargosCentavos,
+    p_dinheiro_novo: plano.dinheiroNovoCentavos,
+    p_observacao: noAntigo,
   });
   if (error || !novoId) return falha(valores, mensagemDoBanco(error));
   redirect(`/emprestimos/${novoId}?ok=renegociado`);

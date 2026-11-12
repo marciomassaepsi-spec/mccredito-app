@@ -5,7 +5,8 @@ import { GraficoAtraso, GraficoMensal } from "@/components/app/graficos";
 import { formatCentavos, formatDataExtenso, formatPercentual, hojeISO } from "@/lib/format";
 import { calcularIndicadores, ultimosMeses } from "@/lib/painel";
 import { requireUser } from "@/lib/supabase/server";
-import { resumir } from "@/lib/vendas";
+import { ehVenda, resumir } from "@/lib/vendas";
+import { carregarVendas } from "@/lib/vendas-dados";
 
 const ATALHOS = [
   { href: "/cobranca", rotulo: "Cobrança de hoje", Icone: Megaphone },
@@ -32,7 +33,7 @@ export default async function InicioPage() {
   const fim = meses[meses.length - 1].fim;
 
   const mesAtualJanela = meses[meses.length - 1];
-  const [{ data: ativos }, { data: abertas }, { data: previstas }, { data: pagamentos }, { data: config }, { data: vendasMes }] = await Promise.all([
+  const [{ data: ativos }, { data: abertas }, { data: previstas }, { data: pagamentos }, { data: config }, vendasMes] = await Promise.all([
     supabase.from("emprestimos").select("valor_centavos").eq("status", "ativo"),
     supabase
       .from("parcelas")
@@ -52,15 +53,9 @@ export default async function InicioPage() {
       .gte("pago_em", inicio)
       .lte("pago_em", fim),
     supabase.from("configuracoes").select("limite_contratos_ativos").maybeSingle(),
-    supabase
-      .from("emprestimos")
-      .select("valor_centavos, taxa_percentual, parcelas(valor_centavos, juros_centavos, pago_centavos)")
-      .gte("liberado_em", mesAtualJanela.inicio)
-      .lte("liberado_em", mesAtualJanela.fim)
-      .neq("status", "cancelado")
-      .is("renegociado_de", null),
+    carregarVendas(supabase, mesAtualJanela.inicio, mesAtualJanela.fim),
   ]);
-  const vendas = resumir(vendasMes ?? []);
+  const vendas = resumir(vendasMes.emprestimos.filter(ehVenda));
 
   const ind = calcularIndicadores({
     hoje,

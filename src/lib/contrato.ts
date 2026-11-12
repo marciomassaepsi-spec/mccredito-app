@@ -8,8 +8,65 @@ import { exibirChavePix } from "./pix";
  * Modelo padrão. É um ponto de partida: revise com um advogado antes de usar.
  * Formatação: "# " título, "## " subtítulo, **negrito**, linha em branco separa
  * parágrafos, {{tabela_parcelas}} e {{assinaturas}} viram blocos próprios.
+ * {{renegociacao}} sozinha na linha some quando o empréstimo não é renegociação.
  */
 export const MODELO_PADRAO = `# CONTRATO DE EMPRÉSTIMO PESSOAL
+
+**CREDOR:** {{empresa.qualificacao}}, doravante chamada CREDOR.
+
+**DEVEDOR:** {{cliente.nome}}, inscrito no CPF sob o nº {{cliente.cpf}}, residente em {{cliente.endereco}}, doravante chamado DEVEDOR.
+
+As partes acima celebram este contrato de empréstimo de dinheiro (mútuo), que se rege pelas cláusulas a seguir.
+
+## Cláusula 1ª – Do valor
+
+O CREDOR empresta ao DEVEDOR a quantia de **{{valor}}** ({{valor_extenso}}), {{entrega}}.
+
+{{renegociacao}}
+
+## Cláusula 2ª – Dos juros e das parcelas
+
+Sobre o valor emprestado incidem juros de {{taxa}} ao mês, calculados pelo sistema {{sistema}}. O DEVEDOR pagará {{parcelas}} parcelas {{periodicidade}}, que somam **{{total}}** ({{total_extenso}}), com custo efetivo total (CET) de {{cet}} ao mês, nos valores e datas abaixo:
+
+{{tabela_parcelas}}
+
+## Cláusula 3ª – Da forma de pagamento
+
+Os pagamentos serão feitos por PIX para a chave {{pix}}, em nome de {{pix.titular}}, ou em dinheiro mediante recibo.
+
+## Cláusula 4ª – Do atraso
+
+A parcela paga depois do vencimento terá multa de {{multa}} sobre o valor em atraso e juros de mora de {{mora}} ao mês, calculados por dia de atraso.
+
+O atraso de qualquer parcela por mais de 30 dias permite ao CREDOR considerar vencidas as parcelas seguintes e cobrar de uma vez o saldo devedor, com os encargos acima.
+
+## Cláusula 5ª – Da quitação antecipada
+
+O DEVEDOR pode quitar o saldo a qualquer tempo, total ou parcialmente, com redução proporcional dos juros das parcelas que ainda não venceram (art. 52, § 2º, do Código de Defesa do Consumidor).
+
+## Cláusula 6ª – Dos dados pessoais
+
+O DEVEDOR autoriza o uso dos dados informados neste contrato apenas para a sua execução e cobrança, nos termos da Lei nº 13.709/2018 (LGPD).
+
+## Cláusula 7ª – Do foro
+
+Fica eleito o foro da comarca de {{credor.cidade}} para resolver qualquer questão deste contrato.
+
+E, por estarem de acordo, as partes assinam este contrato em duas vias de igual teor, junto com duas testemunhas.
+
+{{credor.cidade}}, {{data_extenso}}.
+
+{{assinaturas}}
+`;
+
+/**
+ * Modelos padrão de versões anteriores, guardados para reconhecer quem salvou
+ * o padrão sem mexer: esse modelo passa a usar o padrão atual sozinho.
+ * Nunca edite estes textos; ao mudar o MODELO_PADRAO, acrescente o anterior aqui.
+ */
+const MODELOS_PADRAO_ANTERIORES = [
+  // Até novembro de 2026: a cláusula 1 sempre dizia que o valor todo foi entregue (sem renegociação)
+  `# CONTRATO DE EMPRÉSTIMO PESSOAL
 
 **CREDOR:** {{empresa.qualificacao}}, doravante chamada CREDOR.
 
@@ -54,14 +111,7 @@ E, por estarem de acordo, as partes assinam este contrato em duas vias de igual 
 {{credor.cidade}}, {{data_extenso}}.
 
 {{assinaturas}}
-`;
-
-/**
- * Modelos padrão de versões anteriores, guardados para reconhecer quem salvou
- * o padrão sem mexer: esse modelo passa a usar o padrão atual sozinho.
- * Nunca edite estes textos; ao mudar o MODELO_PADRAO, acrescente o anterior aqui.
- */
-const MODELOS_PADRAO_ANTERIORES = [
+`,
   // Até novembro de 2026: credor era a pessoa física (nome e CPF das Configurações)
   `# CONTRATO DE EMPRÉSTIMO PESSOAL
 
@@ -153,6 +203,15 @@ export type DadosContrato = {
     moraPercentual: number;
   };
   parcelas: Array<{ numero: number; vencimento: string; valor_centavos: number }>;
+  /** Só quando o empréstimo veio de uma renegociação */
+  renegociacao?: {
+    /** Data do contrato anterior (liberação) "aaaa-mm-dd" */
+    contratoAnteriorEm: string;
+    /** Saldo do contrato anterior que passou para este (com multa e mora, se somadas) */
+    saldoAnteriorCentavos: number;
+    /** Dinheiro entregue ao cliente na renegociação */
+    dinheiroNovoCentavos: number;
+  } | null;
   /** Data de emissão "aaaa-mm-dd" */
   hoje: string;
 };
@@ -195,6 +254,23 @@ export function qualificacaoEmpresa(e: DadosContrato["empresa"]): string {
   return texto;
 }
 
+/**
+ * Parágrafo da renegociação: "Este contrato substitui o contrato de 05/06/2026.
+ * O valor de R$ 1.000,00 corresponde ao saldo anterior de R$ 500,00 somado a
+ * R$ 500,00 entregues ao DEVEDOR em 12/11/2026…"
+ */
+export function textoRenegociacao(r: NonNullable<DadosContrato["renegociacao"]>, e: Pick<DadosContrato["emprestimo"], "valorCentavos" | "liberadoEm">): string {
+  const inicio = `Este contrato substitui o contrato de ${formatData(r.contratoAnteriorEm)}, que fica encerrado.`;
+  if (r.dinheiroNovoCentavos <= 0) {
+    return `${inicio} O valor de ${formatCentavos(e.valorCentavos)} corresponde ao saldo anterior, que o DEVEDOR reconhece como devido; nenhum valor novo foi entregue.`;
+  }
+  return (
+    `${inicio} O valor de ${formatCentavos(e.valorCentavos)} corresponde ao saldo anterior de ${formatCentavos(r.saldoAnteriorCentavos)}, ` +
+    `que o DEVEDOR reconhece como devido, somado a ${formatCentavos(r.dinheiroNovoCentavos)} (${reaisPorExtenso(r.dinheiroNovoCentavos)}) ` +
+    `entregues ao DEVEDOR em ${formatData(e.liberadoEm)}, dos quais ele dá plena quitação ao assinar este contrato.`
+  );
+}
+
 const PLURAL_PERIODO: Record<Periodicidade, string> = {
   mensal: "mensais",
   quinzenal: "quinzenais",
@@ -217,6 +293,8 @@ export const VARIAVEIS: Array<[string, string]> = [
   ["valor", "Valor emprestado"],
   ["valor_extenso", "Valor emprestado por extenso"],
   ["data_liberacao", "Data em que o dinheiro foi entregue"],
+  ["entrega", "\"entregue em dd/mm/aaaa, da qual o DEVEDOR dá plena quitação…\" ou, numa renegociação, como o valor foi formado"],
+  ["renegociacao", "Numa renegociação: parágrafo com o contrato substituído, o saldo anterior e o dinheiro novo (vazio nos outros empréstimos; sozinha na linha)"],
   ["taxa", "Taxa de juros ao mês"],
   ["sistema", "Tabela Price, SAC ou juros simples"],
   ["parcelas", "Quantidade de parcelas"],
@@ -254,6 +332,10 @@ export function montarVariaveis(d: DadosContrato): Record<string, string> {
     valor: formatCentavos(d.emprestimo.valorCentavos),
     valor_extenso: reaisPorExtenso(d.emprestimo.valorCentavos),
     data_liberacao: formatData(d.emprestimo.liberadoEm),
+    entrega: d.renegociacao
+      ? "formada pelo saldo do contrato anterior e pelo valor novo, como descrito no parágrafo abaixo"
+      : `entregue em ${formatData(d.emprestimo.liberadoEm)}, da qual o DEVEDOR dá plena quitação ao assinar este contrato`,
+    renegociacao: d.renegociacao ? textoRenegociacao(d.renegociacao, d.emprestimo) : "",
     taxa: formatPercentual(d.emprestimo.taxaPercentual / 100),
     sistema: NOME_SISTEMA[d.emprestimo.sistema],
     parcelas: String(d.parcelas.length),

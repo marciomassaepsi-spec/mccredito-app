@@ -44,7 +44,7 @@ export function montarParcelas(dados: {
 /**
  * Para contratos que já tinham a parcela combinada (ex.: R$ 1.500 em 6x de
  * R$ 344,00): descobre a taxa da Tabela Price e monta o cronograma com a
- * parcela exata. A última parcela acerta os centavos para o saldo fechar.
+ * parcela exata, inclusive na última (a sobra do arredondamento fica nos juros).
  * Devolve null quando a parcela não fecha (total menor que o emprestado, ou
  * taxa acima de 1000% ao mês).
  */
@@ -60,7 +60,17 @@ export function montarParcelasPelaParcela(dados: {
   const taxaMensal = taxaMensalDoPeriodo(taxaPeriodo, dados.periodicidade);
   if (taxaMensal > 10) return null;
   const cronograma = tabelaPrice(dados.valorCentavos, taxaPeriodo, dados.qtdParcelas, dados.parcelaCentavos);
-  return { taxaMensal, parcelas: comDatas(cronograma, dados.primeiroVencimento, dados.periodicidade) };
+  const parcelas = comDatas(cronograma, dados.primeiroVencimento, dados.periodicidade);
+  // O arredondamento dos juros mês a mês pode deixar a última 1 ou 2 centavos
+  // diferente da combinada (6x de R$ 250 virava R$ 250,01 na última). A parcela
+  // combinada vale: a diferença fica nos juros da última, a amortização não muda.
+  const ultima = parcelas[parcelas.length - 1];
+  const diferenca = ultima.valor_centavos - dados.parcelaCentavos;
+  if (diferenca !== 0 && Math.abs(diferenca) <= dados.qtdParcelas && ultima.juros_centavos - diferenca >= 0) {
+    ultima.valor_centavos = dados.parcelaCentavos;
+    ultima.juros_centavos -= diferenca;
+  }
+  return { taxaMensal, parcelas };
 }
 
 export type ModoCalculo = "taxa" | "parcela";
@@ -230,4 +240,9 @@ export const NOME_PERIODICIDADE: Record<Periodicidade, string> = {
 /** Mesma data no mês seguinte (31/01 → 28/02), para sugerir o 1º vencimento. */
 export function umMesDepois(data: string): string {
   return gerarVencimentos(data, 2, "mensal")[1];
+}
+
+/** Um período depois da data (mês, 15 dias ou semana), para sugerir o 1º vencimento. */
+export function umPeriodoDepois(data: string, periodicidade: Periodicidade): string {
+  return gerarVencimentos(data, 2, periodicidade)[1];
 }

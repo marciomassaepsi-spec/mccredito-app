@@ -43,7 +43,7 @@ export default async function EmprestimoPage({ params, searchParams }: PageProps
   const { ok } = await searchParams;
   const { supabase } = await requireUser();
 
-  const [{ data: e }, { data: config }, { data: perfil }, { data: sucessor }] = await Promise.all([
+  const [{ data: e }, { data: config }, { data: perfil }, { data: sucessor }, { data: reneg }] = await Promise.all([
     supabase
       .from("emprestimos")
       .select(
@@ -59,8 +59,14 @@ export default async function EmprestimoPage({ params, searchParams }: PageProps
       .maybeSingle(),
     supabase.from("perfis").select("papel").maybeSingle(),
     supabase.from("emprestimos").select("id").eq("renegociado_de", id).maybeSingle(),
+    // Separado: se o banco ainda não tem a coluna, só esta consulta falha e a página abre
+    supabase.from("emprestimos").select("dinheiro_novo_centavos").eq("id", id).maybeSingle(),
   ]);
   if (!e) notFound();
+  const { data: anterior } = e.renegociado_de
+    ? await supabase.from("emprestimos").select("id, liberado_em").eq("id", e.renegociado_de).maybeSingle()
+    : { data: null };
+  const dinheiroNovo = reneg?.dinheiro_novo_centavos ?? null;
 
   const hoje = hojeISO();
   const resumo = resumirParcelas(e.parcelas, hoje);
@@ -99,9 +105,18 @@ export default async function EmprestimoPage({ params, searchParams }: PageProps
           {NOME_PERIODICIDADE[e.periodicidade].toLowerCase()} · liberado em {formatData(e.liberado_em)}
         </p>
         {e.renegociado_de && (
-          <Link href={`/emprestimos/${e.renegociado_de}`} className="text-sm font-bold text-primary">
-            Veio da renegociação de outro empréstimo →
-          </Link>
+          <p className="num rounded-xl bg-accent px-4 py-3 text-sm text-accent-foreground">
+            <span className="font-bold">Renegociação de </span>
+            <Link href={`/emprestimos/${e.renegociado_de}`} className="font-bold text-primary underline underline-offset-4">
+              {anterior ? `contrato de ${formatData(anterior.liberado_em)}` : "outro empréstimo"}
+            </Link>
+            {dinheiroNovo !== null && (
+              <>
+                : saldo anterior <b className="whitespace-nowrap">{formatCentavos(e.valor_centavos - dinheiroNovo)}</b> + dinheiro novo{" "}
+                <b className="whitespace-nowrap">{formatCentavos(dinheiroNovo)}</b>
+              </>
+            )}
+          </p>
         )}
         {sucessor && (
           <Link href={`/emprestimos/${sucessor.id}`} className="text-sm font-bold text-primary">

@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { hojeISO, percentualParaTexto } from "@/lib/format";
-import { planoQuitacao } from "@/lib/pagamentos";
+import { centavosParaTexto, hojeISO } from "@/lib/format";
 import { requireUser } from "@/lib/supabase/server";
 
 import { RenegociarForm } from "./renegociar-form";
@@ -16,17 +15,15 @@ export default async function RenegociarPage({ params }: PageProps<"/emprestimos
   const [{ data: e }, { data: config }] = await Promise.all([
     supabase
       .from("emprestimos")
-      .select("id, status, taxa_percentual, sistema, clientes(nome), parcelas(id, numero, vencimento, valor_centavos, pago_centavos, status)")
+      .select("id, status, liberado_em, qtd_parcelas, periodicidade, clientes(nome), parcelas(id, numero, vencimento, valor_centavos, pago_centavos, status)")
       .eq("id", id)
+      .order("numero", { referencedTable: "parcelas" })
       .maybeSingle(),
     supabase.from("configuracoes").select("multa_percentual, mora_percentual_mes").maybeSingle(),
   ]);
   if (!e) notFound();
 
-  const hoje = hojeISO();
-  const taxa = Number(e.taxa_percentual) / 100;
   const abertas = e.parcelas.filter((p) => p.status === "a_vencer" || p.status === "paga_parcial");
-  const plano = planoQuitacao(abertas, taxa, hoje, Number(config?.multa_percentual ?? 2) / 100, Number(config?.mora_percentual_mes ?? 1) / 100, false);
 
   return (
     <div className="grid gap-5">
@@ -36,7 +33,7 @@ export default async function RenegociarPage({ params }: PageProps<"/emprestimos
         </Link>
         <h1 className="text-3xl font-black italic text-brand-deep">Renegociar</h1>
         <p className="text-muted-foreground">
-          {e.clientes?.nome}. Cria um empréstimo novo com o saldo, em novas parcelas.
+          {e.clientes?.nome}. O que falta deste contrato, mais o dinheiro novo que você mandar, vira um contrato novo.
         </p>
       </section>
       {e.status !== "ativo" || abertas.length === 0 ? (
@@ -46,10 +43,17 @@ export default async function RenegociarPage({ params }: PageProps<"/emprestimos
       ) : (
         <RenegociarForm
           emprestimoId={e.id}
-          saldoCentavos={plano.totalCentavos}
-          taxaAtual={percentualParaTexto(taxa)}
-          sistemaAtual={e.sistema}
-          hoje={hoje}
+          parcelas={abertas}
+          multa={Number(config?.multa_percentual ?? 2) / 100}
+          mora={Number(config?.mora_percentual_mes ?? 1) / 100}
+          hoje={hojeISO()}
+          liberadoAntigo={e.liberado_em}
+          inicial={{
+            // Sugestão: as mesmas parcelas do contrato atual (ex.: de novo 6x de R$ 250)
+            qtd: String(e.qtd_parcelas),
+            parcela: centavosParaTexto(e.parcelas[0]?.valor_centavos ?? 0),
+            periodicidade: e.periodicidade,
+          }}
         />
       )}
     </div>

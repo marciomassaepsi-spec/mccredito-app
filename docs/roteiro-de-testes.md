@@ -81,9 +81,21 @@ número do passo e o que apareceu na tela.
 
 ## 8. Renegociação
 
-- [ ] **8.1** No empréstimo do passo 7, toque em **Renegociar**. Escolha 3 parcelas, escreva o
-      motivo e confirme. Abre o empréstimo novo; o antigo fica "Renegociado" e os dois têm link um
-      para o outro.
+- [ ] **8.1** No empréstimo do passo 7, toque em **Renegociar**. O topo mostra **Quanto falta** (a
+      soma do que falta das parcelas em aberto) e quantas parcelas faltam. Se houver parcela
+      atrasada, aparece a multa e a mora e a caixa **Somar multa e mora** (desmarcada).
+- [ ] **8.2** Em **Dinheiro novo para o cliente** digite `500,00`: o **Valor do novo contrato** passa a
+      ser o que falta + R$ 500,00. Em **Parcelas novas**, digite um valor de parcela pequeno demais
+      (ex.: `10,00`): aparece "A parcela não fecha…". Corrija para um valor que feche e veja a taxa.
+- [ ] **8.3** **Revisar renegociação**: confira quanto faltava, o dinheiro novo, o valor do novo
+      contrato, as parcelas e a taxa, e **O cliente recebe agora: R$ 500,00**. Confirme. Abre o
+      empréstimo novo com "Renegociação de contrato de …: saldo anterior … + dinheiro novo R$ 500,00";
+      o antigo fica "Renegociado", com as parcelas em aberto canceladas, e os dois têm link um para
+      o outro.
+- [ ] **8.4** No empréstimo novo, **Abrir PDF**: a cláusula 1 diz que o contrato substitui o anterior e
+      que o valor é o saldo anterior somado aos R$ 500,00 entregues.
+- [ ] **8.5** Em **Vendas**, abra o mês de hoje: a renegociação aparece com a etiqueta
+      **Renegociação** e conta só os R$ 500,00 de dinheiro novo.
 
 ## 8b. Contratos de antes do app
 

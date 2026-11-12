@@ -23,7 +23,7 @@ function linha(valores: LinhaPlanilha["valores"]): LinhaPlanilha {
 }
 
 describe("montarParcelasPelaParcela", () => {
-  it("usa a parcela combinada e acerta os centavos na última", () => {
+  it("usa a parcela combinada em todas, inclusive na última", () => {
     const plano = montarParcelasPelaParcela({
       valorCentavos: 150000,
       parcelaCentavos: 34400,
@@ -33,7 +33,7 @@ describe("montarParcelasPelaParcela", () => {
     });
     expect(plano).not.toBeNull();
     expect(plano?.parcelas.slice(0, 5).every((p) => p.valor_centavos === 34400)).toBe(true);
-    expect(Math.abs((plano?.parcelas[5].valor_centavos ?? 0) - 34400)).toBeLessThanOrEqual(2);
+    expect(plano?.parcelas[5].valor_centavos).toBe(34400);
     expect(plano?.parcelas.reduce((s, p) => s + p.amortizacao_centavos, 0)).toBe(150000);
     expect(plano?.taxaMensal).toBeCloseTo(0.0996, 4);
   });

@@ -7,7 +7,9 @@ import { Selo } from "@/components/app/selo";
 import { formatCentavos, formatData, formatPercentual, hojeISO } from "@/lib/format";
 import { ultimosMeses } from "@/lib/painel";
 import { requireUser } from "@/lib/supabase/server";
-import { resumir, variacao, vendasPorMes, type EmprestimoVenda } from "@/lib/vendas";
+import { FALTA_ATUALIZAR_BANCO } from "@/lib/acoes";
+import { ehVenda, parteVendida, resumir, variacao, vendasPorMes } from "@/lib/vendas";
+import { carregarVendas } from "@/lib/vendas-dados";
 import { cn } from "cn";
 
 export const metadata: Metadata = { title: "Vendas" };
@@ -44,18 +46,8 @@ export default async function VendasPage({ searchParams }: PageProps<"/vendas">)
   const fim = janela[janela.length - 1].fim;
 
   const { supabase } = await requireUser();
-  const { data, error } = await supabase
-    .from("emprestimos")
-    .select(
-      "id, liberado_em, valor_centavos, taxa_percentual, qtd_parcelas, status, renegociado_de, clientes(nome), parcelas(valor_centavos, juros_centavos, pago_centavos)",
-    )
-    .gte("liberado_em", inicio)
-    .lte("liberado_em", fim)
-    .neq("status", "cancelado")
-    .is("renegociado_de", null)
-    .order("liberado_em");
-
-  const emprestimos: EmprestimoVenda[] = data ?? [];
+  const { emprestimos: carregados, erro } = await carregarVendas(supabase, inicio, fim);
+  const emprestimos = carregados.filter(ehVenda);
   const meses = vendasPorMes(emprestimos, janela);
   const total = resumir(emprestimos);
   const atual = meses[meses.length - 1];
@@ -91,7 +83,11 @@ export default async function VendasPage({ searchParams }: PageProps<"/vendas">)
         ))}
       </nav>
 
-      {error && <p className="rounded-xl bg-late-soft px-4 py-3 font-semibold text-late">Não foi possível carregar as vendas.</p>}
+      {erro && (
+        <p role="alert" className="rounded-xl bg-late-soft px-4 py-3 font-semibold text-late">
+          {erro === "banco" ? `${FALTA_ATUALIZAR_BANCO} Até lá, as renegociações com dinheiro novo não aparecem aqui.` : "Não foi possível carregar as vendas."}
+        </p>
+      )}
 
       <section className="rounded-2xl bg-brand-deep p-5 text-white">
         <p className="text-sm font-bold text-white/75">
@@ -179,8 +175,9 @@ export default async function VendasPage({ searchParams }: PageProps<"/vendas">)
           ) : (
             <ul className="grid gap-2">
               {doMes.map((e) => {
-                const juros = e.parcelas.reduce((s, p) => s + p.juros_centavos, 0);
+                const parte = parteVendida(e);
                 const parcela = e.parcelas[0]?.valor_centavos ?? 0;
+                const renegociacao = e.renegociado_de !== null;
                 return (
                   <li key={e.id}>
                     <Link
@@ -189,22 +186,36 @@ export default async function VendasPage({ searchParams }: PageProps<"/vendas">)
                     >
                       <div className="flex items-start justify-between gap-3">
                         <span className="min-w-0 font-bold break-words">{e.clientes?.nome}</span>
-                        {e.status === "quitado" ? (
-                          <Selo tom="ok">Quitado</Selo>
-                        ) : e.status === "renegociado" ? (
-                          <Selo tom="neutro">Renegociado</Selo>
-                        ) : (
-                          <Selo tom="neutro">Ativo</Selo>
-                        )}
-                      </div>
-                      <p className="num text-sm text-muted-foreground">
-                        {formatData(e.liberado_em)} · {formatCentavos(e.valor_centavos)}{" "}
-                        <span className="whitespace-nowrap">
-                          em {e.qtd_parcelas}x de {formatCentavos(parcela)}
+                        <span className="flex shrink-0 flex-wrap justify-end gap-1">
+                          {renegociacao && <Selo tom="info">Renegociação</Selo>}
+                          {e.status === "quitado" ? (
+                            <Selo tom="ok">Quitado</Selo>
+                          ) : e.status === "renegociado" ? (
+                            <Selo tom="neutro">Renegociado</Selo>
+                          ) : (
+                            <Selo tom="neutro">Ativo</Selo>
+                          )}
                         </span>
-                      </p>
+                      </div>
+                      {renegociacao ? (
+                        <p className="num text-sm text-muted-foreground">
+                          {formatData(e.liberado_em)} · dinheiro novo <b className="text-foreground">{formatCentavos(parte.emprestadoCentavos)}</b>{" "}
+                          <span className="whitespace-nowrap">no contrato de {formatCentavos(e.valor_centavos)}</span>{" "}
+                          <span className="whitespace-nowrap">
+                            em {e.qtd_parcelas}x de {formatCentavos(parcela)}
+                          </span>
+                        </p>
+                      ) : (
+                        <p className="num text-sm text-muted-foreground">
+                          {formatData(e.liberado_em)} · {formatCentavos(e.valor_centavos)}{" "}
+                          <span className="whitespace-nowrap">
+                            em {e.qtd_parcelas}x de {formatCentavos(parcela)}
+                          </span>
+                        </p>
+                      )}
                       <p className="num text-sm">
-                        Juros <b>{formatCentavos(juros)}</b> · {formatPercentual(e.taxa_percentual / 100)} ao mês
+                        Juros <b>{formatCentavos(parte.jurosCentavos)}</b>
+                        {renegociacao && " (parte do dinheiro novo)"} · {formatPercentual(e.taxa_percentual / 100)} ao mês
                       </p>
                     </Link>
                   </li>
@@ -259,7 +270,9 @@ export default async function VendasPage({ searchParams }: PageProps<"/vendas">)
 
       <p className="text-xs text-muted-foreground">
         Conta pela data em que o dinheiro foi entregue. Os juros são os combinados no contrato, sem multa e mora.
-        Empréstimos cancelados e renegociações (que não são dinheiro novo) ficam de fora.
+        Empréstimos cancelados ficam de fora. Numa renegociação, só conta o dinheiro novo que você mandou ao
+        cliente, com a parte dos juros do novo contrato que cabe a ele; o saldo antigo já contou no mês do
+        contrato original. Renegociação sem dinheiro novo fica de fora.
       </p>
     </div>
   );

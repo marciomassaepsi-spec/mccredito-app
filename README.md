@@ -16,7 +16,8 @@ cobrança e calculadora de juros. Funciona no navegador e pode ser instalado no 
 | 7 | Painel, exportação, backup e histórico de alterações | Pronta |
 | 8 | Revisão de segurança, direitos do cliente (LGPD) e roteiro de testes | Pronta |
 | 9 | Contratos de antes do app: parcelas já pagas, valor da parcela e importação por planilha | Pronta |
-| 10 | Vendas por mês: quanto foi emprestado e os juros desses contratos, com gráfico e detalhe do mês | **Pronta** |
+| 10 | Vendas por mês: quanto foi emprestado e os juros desses contratos, com gráfico e detalhe do mês | Pronta |
+| 11 | Renegociar com dinheiro novo: o que falta + o que você manda vira um contrato novo | **Pronta** |
 
 Depois de publicar, siga o [roteiro de testes](docs/roteiro-de-testes.md) (uns 20 minutos).
 
@@ -42,6 +43,7 @@ termos atuais em vercel.com/pricing antes de escolher.
    4. [`20261008120000_seguranca_lgpd.sql`](supabase/migrations/20261008120000_seguranca_lgpd.sql)
    5. [`20261009120000_contratos_em_andamento.sql`](supabase/migrations/20261009120000_contratos_em_andamento.sql)
    6. [`20261112120000_cnpj_empresa.sql`](supabase/migrations/20261112120000_cnpj_empresa.sql)
+   7. [`20261113120000_renegociacao_dinheiro_novo.sql`](supabase/migrations/20261113120000_renegociacao_dinheiro_novo.sql)
 
    Para cada um: abra aqui no GitHub, copie todo o conteúdo, cole no SQL Editor (em uma aba nova,
    **New query**) e clique em **Run**. Deve aparecer "Success. No rows returned".
@@ -119,7 +121,30 @@ No **Painel**, o cartão **Vendido em (mês)** abre a tela **Vendas**: quanto vo
 do período (6, 12 ou 24 meses), a comparação com o mês anterior, ticket médio, taxa média e um
 gráfico com o valor emprestado e os juros de cada mês. Toque num mês para ver os contratos dele,
 quanto já foi recebido e quanto rende no total. Os juros são os combinados no contrato, sem multa e
-mora. Empréstimos cancelados e renegociações (que não são dinheiro novo) não contam como venda.
+mora. Empréstimos cancelados não contam como venda. Uma renegociação só conta o **dinheiro novo** que
+você mandou ao cliente, no mês da renegociação, com a parte dos juros do novo contrato que cabe a
+ele (juros × dinheiro novo ÷ valor do novo contrato); o saldo antigo já contou no mês do contrato
+original. Renegociação sem dinheiro novo fica de fora. No detalhe do mês ela aparece com a etiqueta
+**Renegociação** e o valor do dinheiro novo.
+
+## Renegociar com dinheiro novo
+
+No empréstimo, toque em **Renegociar**. Exemplo: o cliente pegou R$ 1.000 em 6x de R$ 250 e já
+pagou 4. A tela mostra **Quanto falta: R$ 500,00** (2 parcelas, sem multa e mora). Em **Dinheiro
+novo para o cliente** digite `500,00`: o **valor do novo contrato** fica R$ 1.000,00. Em **Parcelas
+novas** digite o valor da parcela (`250,00`) e quantas (`6`); o app mostra a taxa que isso dá
+(12,98% ao mês). Se preferir, toque em **Prefiro informar a taxa**. **Revisar renegociação** mostra
+tudo antes de salvar, com **O cliente recebe agora: R$ 500,00** em destaque.
+
+- Se alguma parcela estiver atrasada, aparece a multa e a mora até a data da renegociação e a caixa
+  **Somar multa e mora ao saldo** (desmarcada: o que vale é o que falta das parcelas).
+- Dinheiro novo pode ser 0: aí é só trocar as parcelas.
+- A observação é opcional; o app escreve sozinho "Renegociação: saldo R$ 500,00 + R$ 500,00 novos".
+- O contrato antigo fica **Renegociado** (as parcelas em aberto são canceladas; os pagamentos ficam
+  no histórico) e o novo mostra "Renegociação de contrato de dd/mm/aaaa: saldo anterior + dinheiro
+  novo". No PDF do contrato novo, a cláusula 1 explica que o valor é o saldo anterior somado ao
+  dinheiro entregue (variáveis `{{entrega}}` e `{{renegociacao}}`). Se você personalizou o modelo de
+  contrato, acrescente essas duas variáveis nele.
 
 ## Cobrança
 
@@ -260,14 +285,19 @@ npm run typecheck && npm run lint
 - `src/lib/pagamentos.ts` multa e mora na data, divisão do recebimento (encargos primeiro) e plano
   de quitação. As funções `registrar_pagamento`, `estornar_pagamento`, `quitar_emprestimo` e
   `renegociar_emprestimo` gravam tudo numa transação e recalculam parcela e empréstimo.
+- `src/lib/renegociacao.ts` saldo em aberto, multa e mora na data e o novo contrato (saldo +
+  encargos, se somados, + dinheiro novo), pela parcela ou pela taxa. `renegociar_emprestimo`
+  recalcula o saldo no banco, confere o valor do novo contrato (erro `SALDO_MUDOU` se não bate) e
+  grava `emprestimos.dinheiro_novo_centavos` (null quando não é renegociação).
 - `src/lib/importacao.ts` lê e confere a planilha de contratos em andamento (títulos com apelidos,
   datas, CPF sem o zero da frente, CSV) e `src/lib/planilha.ts` abre `.xlsx`/CSV e gera o modelo
   (`/importar/modelo`). `importar_contratos` grava cada linha numa subtransação: uma linha com erro
   não desfaz as outras. `criar_emprestimo_em_andamento` cria o empréstimo e dá baixa nas primeiras
   parcelas. Pelo valor da parcela, `montarParcelasPelaParcela` acha a taxa da Price e usa a parcela
-  exata, com a última acertando os centavos.
+  exata em todas, inclusive na última (a sobra do arredondamento fica nos juros dela).
 - `src/lib/vendas.ts` agrupa as vendas por mês da liberação (emprestado, juros do contrato,
-  recebido, ticket e taxa média ponderada); `/vendas` mostra o gráfico de colunas empilhadas
+  recebido, ticket e taxa média ponderada; renegociação conta só o dinheiro novo, em `parteVendida`);
+  `src/lib/vendas-dados.ts` faz a consulta; `/vendas` mostra o gráfico de colunas empilhadas
   (`GraficoVendas`) e o detalhe do mês em `?mes=aaaa-mm`.
 - `src/lib/contrato.ts` + `contrato-pdf.ts` modelo com `{{variaveis}}` e geração do PDF (pdf-lib).
   O credor é a empresa (`nome_empresa` + `cnpj_empresa`). Ao mudar o `MODELO_PADRAO`, guarde o texto

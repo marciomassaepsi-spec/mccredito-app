@@ -25,6 +25,15 @@ export function falha(valores: Record<string, string>, mensagem: string, erros: 
   return { ok: false, mensagem, erros, valores };
 }
 
+/** Mostrado quando o app pede ao banco algo de uma migration que ainda não foi rodada. */
+export const FALTA_ATUALIZAR_BANCO =
+  "Falta atualizar o banco de dados: no Supabase, rode no SQL Editor a migration mais nova da pasta supabase/migrations (veja o README).";
+
+/** Função SQL (PGRST202) ou coluna (42703) que ainda não existe no banco. */
+export function bancoDesatualizado(erro: { code?: string } | null): boolean {
+  return erro?.code === "PGRST202" || erro?.code === "42703";
+}
+
 /** Traduz erros do banco em mensagens que o dono entende. */
 export function mensagemDoBanco(erro: { code?: string; message?: string } | null): string {
   if (!erro) return "Algo deu errado. Tente de novo.";
@@ -43,10 +52,12 @@ export function mensagemDoBanco(erro: { code?: string; message?: string } | null
   if (msg.startsWith("QUITACAO_INCOMPLETA")) return "As parcelas mudaram enquanto você conferia. Atualize a tela e tente de novo.";
   if (msg.startsWith("CRONOGRAMA_INVALIDO")) return "As parcelas calculadas não conferem. Revise os valores.";
   if (msg.startsWith("JA_PAGAS_INVALIDO")) return "Parcelas já pagas precisa ser menor que o total de parcelas.";
-  // Função SQL que ainda não existe no banco: faltou rodar a migration nova
-  if (erro.code === "PGRST202") {
-    return "Falta atualizar o banco de dados: no Supabase, rode no SQL Editor a migration mais nova da pasta supabase/migrations (veja o README).";
+  if (msg.startsWith("SALDO_MUDOU")) {
+    return "O saldo do empréstimo mudou enquanto você conferia (talvez um pagamento entrou agora). Atualize a tela e confira os valores.";
   }
+  if (msg.startsWith("DATA_INVALIDA")) return "A data da renegociação precisa ser entre a data do empréstimo e hoje.";
+  // Função SQL ou coluna que ainda não existe no banco: faltou rodar a migration nova
+  if (bancoDesatualizado(erro)) return FALTA_ATUALIZAR_BANCO;
   if (erro.code === "42501") return "Seu usuário não tem permissão para isso.";
   if (erro.code === "23503") return "Não dá para apagar: há registros ligados a este.";
   return "Não foi possível salvar agora. Confira sua internet e tente de novo.";

@@ -254,6 +254,7 @@ export type Database = {
           atualizado_em: string;
           cliente_id: string;
           criado_em: string;
+          dinheiro_novo_centavos: number | null;
           id: string;
           liberado_em: string;
           observacoes: string;
@@ -270,6 +271,7 @@ export type Database = {
           atualizado_em?: string;
           cliente_id: string;
           criado_em?: string;
+          dinheiro_novo_centavos?: number | null;
           id?: string;
           liberado_em: string;
           observacoes?: string;
@@ -286,6 +288,7 @@ export type Database = {
           atualizado_em?: string;
           cliente_id?: string;
           criado_em?: string;
+          dinheiro_novo_centavos?: number | null;
           id?: string;
           liberado_em?: string;
           observacoes?: string;
@@ -540,8 +543,10 @@ export type Database = {
       renegociar_emprestimo: {
         Args: {
           p_antigo: string;
-          p_motivo: string;
+          p_dinheiro_novo: number;
+          p_encargos: number;
           p_novo: Json;
+          p_observacao: string;
           p_parcelas: Json;
         };
         Returns: string;
