@@ -17,7 +17,7 @@ export function ContratoCard({ emprestimoId, dadosIncompletos }: { emprestimoId:
       </div>
       {dadosIncompletos && (
         <p className="rounded-xl bg-accent px-3 py-2 text-sm font-semibold text-accent-foreground">
-          Faltam seus dados (nome completo, CPF, cidade ou PIX) nas Configurações. O contrato sai com lacunas.
+          Faltam dados da empresa (CNPJ, cidade ou PIX) nas Configurações. O contrato sai com lacunas; o CNPJ fica numa linha em branco para escrever à mão.
         </p>
       )}
       <div className="grid gap-2 sm:grid-cols-2">

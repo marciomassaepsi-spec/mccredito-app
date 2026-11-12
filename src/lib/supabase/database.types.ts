@@ -89,6 +89,7 @@ export type Database = {
           atualizado_em: string;
           chave_pix: string;
           cidade: string;
+          cnpj_empresa: string;
           cobranca_hora_fim: string;
           cobranca_hora_inicio: string;
           documento_empresa: string;
@@ -108,6 +109,7 @@ export type Database = {
           atualizado_em?: string;
           chave_pix?: string;
           cidade?: string;
+          cnpj_empresa?: string;
           cobranca_hora_fim?: string;
           cobranca_hora_inicio?: string;
           documento_empresa?: string;
@@ -127,6 +129,7 @@ export type Database = {
           atualizado_em?: string;
           chave_pix?: string;
           cidade?: string;
+          cnpj_empresa?: string;
           cobranca_hora_fim?: string;
           cobranca_hora_inicio?: string;
           documento_empresa?: string;

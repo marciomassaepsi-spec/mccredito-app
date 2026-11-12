@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { formatCPF } from "@/lib/format";
+import { formatCNPJ, formatCPF } from "@/lib/format";
 import { exibirChavePix } from "@/lib/pix";
 import { requireUser } from "@/lib/supabase/server";
 
@@ -16,7 +16,7 @@ function numeroParaTexto(valor: number | string) {
 
 function formatDocumento(doc: string) {
   if (doc.length === 11) return formatCPF(doc);
-  if (doc.length === 14) return exibirChavePix("cnpj", doc);
+  if (doc.length === 14) return formatCNPJ(doc);
   return doc;
 }
 
@@ -47,6 +47,7 @@ export default async function ConfiguracoesPage() {
         <ConfigForm
           inicial={{
             nome_empresa: config.nome_empresa,
+            cnpj_empresa: formatCNPJ(config.cnpj_empresa),
             razao_social: config.razao_social,
             documento_empresa: formatDocumento(config.documento_empresa),
             cidade: config.cidade,

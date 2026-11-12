@@ -41,6 +41,7 @@ termos atuais em vercel.com/pricing antes de escolher.
    3. [`20261006120000_pagamentos.sql`](supabase/migrations/20261006120000_pagamentos.sql)
    4. [`20261008120000_seguranca_lgpd.sql`](supabase/migrations/20261008120000_seguranca_lgpd.sql)
    5. [`20261009120000_contratos_em_andamento.sql`](supabase/migrations/20261009120000_contratos_em_andamento.sql)
+   6. [`20261112120000_cnpj_empresa.sql`](supabase/migrations/20261112120000_cnpj_empresa.sql)
 
    Para cada um: abra aqui no GitHub, copie todo o conteúdo, cole no SQL Editor (em uma aba nova,
    **New query**) e clique em **Run**. Deve aparecer "Success. No rows returned".
@@ -80,8 +81,9 @@ segurança do banco. **Nunca use a `secret key` ou a `service_role` no app.**
 
 ### 5. Preencher os dados da empresa
 
-Entre no app, toque na engrenagem (Configurações) e preencha nome completo, CPF, cidade e a chave
-PIX. Eles vão no contrato e nas mensagens de cobrança. A chave de celular pode ser digitada do jeito
+Entre no app, toque na engrenagem (Configurações) e preencha o CNPJ da empresa (opcional), a cidade,
+o nome completo e o CPF do responsável e a chave PIX. Eles vão no contrato e nas mensagens de
+cobrança. A chave de celular pode ser digitada do jeito
 que for, ex. `(71) 91234-5678`: o app guarda no formato que o PIX exige.
 
 ### 6. Instalar no celular
@@ -137,9 +139,29 @@ Em cada uma:
 ## Contrato
 
 Cada empréstimo tem o botão **Abrir PDF**, que gera o contrato com os dados do cliente, as parcelas
-e os seus dados das Configurações. O texto pode ser alterado em **Configurações → Modelo de
+e os dados da empresa das Configurações. O texto pode ser alterado em **Configurações → Modelo de
 contrato**. O modelo que vem pronto é um ponto de partida: **peça para um advogado revisar antes de
 usar com clientes**.
+
+**Credor é a empresa.** No contrato, quem empresta é a MC Créditos (o **Nome da empresa** das
+Configurações), com o **CNPJ da empresa**: "MC Créditos, inscrita no CNPJ sob o nº
+11.222.333/0001-81, com sede em Salvador - BA, neste ato representada por Fulano de Tal, CPF nº
+529.982.247-25". O representante é o **Nome completo do responsável** (e o CPF dele, se for um
+CPF); se esse nome ficar vazio, o trecho "neste ato representada por" sai. A assinatura do CREDOR
+no PDF também é da empresa, com o CNPJ e o nome de quem representa.
+
+**CNPJ da empresa** (Configurações → Empresa) é opcional. Digite com ou sem pontos: o app confere os
+dígitos, guarda só os números e mostra no formato `00.000.000/0000-00`. Enquanto estiver vazio, o
+contrato e a assinatura saem com uma linha em branco (`________________________`) no lugar do
+número, para escrever à mão depois de imprimir.
+
+No modelo, o credor aparece com `{{empresa.qualificacao}}` (nome, CNPJ, sede e representante). Para
+montar o texto do seu jeito há também `{{empresa.nome}}`, `{{empresa.cnpj}}`,
+`{{responsavel.nome}}`, `{{responsavel.documento}}` e `{{pix.titular}}`; a lista completa fica
+na tela do modelo. Quem tinha salvo o modelo padrão sem mudar nada passa a usar o novo sozinho. Um
+modelo **personalizado** não é reescrito: nele, `{{credor.nome}}` e `{{credor.documento}}` agora
+trazem o nome e o CNPJ da empresa. Para pegar o texto novo completo, toque em **Voltar para o
+modelo padrão** (isso apaga as suas alterações no texto).
 
 ## Dados dos clientes (LGPD)
 
@@ -248,6 +270,8 @@ npm run typecheck && npm run lint
   recebido, ticket e taxa média ponderada); `/vendas` mostra o gráfico de colunas empilhadas
   (`GraficoVendas`) e o detalhe do mês em `?mes=aaaa-mm`.
 - `src/lib/contrato.ts` + `contrato-pdf.ts` modelo com `{{variaveis}}` e geração do PDF (pdf-lib).
+  O credor é a empresa (`nome_empresa` + `cnpj_empresa`). Ao mudar o `MODELO_PADRAO`, guarde o texto
+  anterior em `MODELOS_PADRAO_ANTERIORES`: quem salvou um padrão antigo sem mexer passa a usar o novo.
 - Arquivos ficam no bucket privado `documentos`; fotos são reduzidas no navegador antes do envio
   (limite de 4,5 MB da Vercel) e abertas por `/arquivos/...`, que gera um link assinado de 2 minutos.
 - `src/lib/painel.ts` indicadores do painel (carteira, atraso por faixa, recebido × previsto por

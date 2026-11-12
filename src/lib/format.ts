@@ -133,6 +133,14 @@ export function formatCPF(cpf: string | null): string {
   return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
 }
 
+/** "11222333000181" → "11.222.333/0001-81" */
+export function formatCNPJ(cnpj: string | null): string {
+  if (!cnpj) return "";
+  const d = cnpj.replace(/\D/g, "");
+  if (d.length !== 14) return cnpj;
+  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
+}
+
 /** "71912345678" → "(71) 91234-5678" */
 export function formatTelefone(telefone: string): string {
   const d = telefone.replace(/\D/g, "").replace(/^55(?=\d{10,11}$)/, "");

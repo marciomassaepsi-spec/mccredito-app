@@ -20,6 +20,11 @@ const hora = z.string().regex(/^\d{2}:\d{2}$/, "Escolha o horário.");
 const configSchema = z
   .object({
     nome_empresa: z.string().trim().min(2, "Digite o nome da empresa.").max(80),
+    // Opcional: sem CNPJ, o contrato sai com uma linha em branco para preencher à mão
+    cnpj_empresa: z
+      .string()
+      .transform((v) => v.replace(/\D/g, ""))
+      .refine((v) => v === "" || cnpjValido(v), "CNPJ inválido. Confira os 14 números."),
     razao_social: z.string().trim().max(120),
     documento_empresa: z
       .string()

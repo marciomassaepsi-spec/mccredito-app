@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { MODELO_PADRAO, montarVariaveis, preencherModelo, VARIAVEIS, type DadosContrato } from "./contrato";
+import {
+  ehModeloPadrao,
+  LINHA_EM_BRANCO,
+  MODELO_PADRAO,
+  modeloEmUso,
+  montarVariaveis,
+  preencherModelo,
+  qualificacaoEmpresa,
+  VARIAVEIS,
+  type DadosContrato,
+} from "./contrato";
 import { gerarContratoPDF } from "./contrato-pdf";
 import { inteiroPorExtenso, reaisPorExtenso } from "./extenso";
 import { alocarRecebimento, encargosNaData, planoQuitacao, recebidoDoPagamento } from "./pagamentos";
@@ -105,14 +115,64 @@ describe("quitação antecipada", () => {
   });
 });
 
+/** Cópia do modelo padrão publicado até a versão anterior (credor pessoa física). */
+const MODELO_ANTIGO = `# CONTRATO DE EMPRÉSTIMO PESSOAL
+
+**CREDOR:** {{credor.nome}}, inscrito no CPF/CNPJ sob o nº {{credor.documento}}, com endereço em {{credor.cidade}}, doravante chamado CREDOR.
+
+**DEVEDOR:** {{cliente.nome}}, inscrito no CPF sob o nº {{cliente.cpf}}, residente em {{cliente.endereco}}, doravante chamado DEVEDOR.
+
+As partes acima celebram este contrato de empréstimo de dinheiro (mútuo), que se rege pelas cláusulas a seguir.
+
+## Cláusula 1ª – Do valor
+
+O CREDOR empresta ao DEVEDOR a quantia de **{{valor}}** ({{valor_extenso}}), entregue em {{data_liberacao}}, da qual o DEVEDOR dá plena quitação ao assinar este contrato.
+
+## Cláusula 2ª – Dos juros e das parcelas
+
+Sobre o valor emprestado incidem juros de {{taxa}} ao mês, calculados pelo sistema {{sistema}}. O DEVEDOR pagará {{parcelas}} parcelas {{periodicidade}}, que somam **{{total}}** ({{total_extenso}}), com custo efetivo total (CET) de {{cet}} ao mês, nos valores e datas abaixo:
+
+{{tabela_parcelas}}
+
+## Cláusula 3ª – Da forma de pagamento
+
+Os pagamentos serão feitos por PIX para a chave {{pix}}, em nome de {{credor.nome}}, ou em dinheiro mediante recibo.
+
+## Cláusula 4ª – Do atraso
+
+A parcela paga depois do vencimento terá multa de {{multa}} sobre o valor em atraso e juros de mora de {{mora}} ao mês, calculados por dia de atraso.
+
+O atraso de qualquer parcela por mais de 30 dias permite ao CREDOR considerar vencidas as parcelas seguintes e cobrar de uma vez o saldo devedor, com os encargos acima.
+
+## Cláusula 5ª – Da quitação antecipada
+
+O DEVEDOR pode quitar o saldo a qualquer tempo, total ou parcialmente, com redução proporcional dos juros das parcelas que ainda não venceram (art. 52, § 2º, do Código de Defesa do Consumidor).
+
+## Cláusula 6ª – Dos dados pessoais
+
+O DEVEDOR autoriza o uso dos dados informados neste contrato apenas para a sua execução e cobrança, nos termos da Lei nº 13.709/2018 (LGPD).
+
+## Cláusula 7ª – Do foro
+
+Fica eleito o foro da comarca de {{credor.cidade}} para resolver qualquer questão deste contrato.
+
+E, por estarem de acordo, as partes assinam este contrato em duas vias de igual teor, junto com duas testemunhas.
+
+{{credor.cidade}}, {{data_extenso}}.
+
+{{assinaturas}}
+`;
+
 const dados: DadosContrato = {
   empresa: {
     nome: "MC Créditos",
+    cnpj: "11222333000181",
     razaoSocial: "Fulano de Tal",
     documento: "52998224725",
     cidade: "Salvador - BA",
     tipoChavePix: "telefone",
     chavePix: "+5571912345678",
+    nomeRecebedorPix: "Fulano de Tal",
   },
   cliente: { nome: "Josiane Ferreira", cpf: "11144477735", endereco: "Rua Nova, 10 - Pituba, Salvador - BA" },
   emprestimo: {
@@ -141,7 +201,10 @@ describe("contrato", () => {
     expect(texto).toContain("**R$ 1.500,00** (mil e quinhentos reais)");
     expect(texto).toContain("6 parcelas mensais");
     expect(texto).toContain("**R$ 2.065,85** (dois mil e sessenta e cinco reais e oitenta e cinco centavos)");
-    expect(texto).toContain("CPF/CNPJ sob o nº 529.982.247-25");
+    expect(texto).toContain(
+      "**CREDOR:** MC Créditos, inscrita no CNPJ sob o nº 11.222.333/0001-81, com sede em Salvador - BA, neste ato representada por Fulano de Tal, CPF nº 529.982.247-25, doravante chamada CREDOR.",
+    );
+    expect(texto).toContain("chave (71) 91234-5678, em nome de Fulano de Tal,");
     expect(texto).toContain("chave (71) 91234-5678");
     expect(texto).toContain("Salvador - BA, 5 de outubro de 2026.");
     expect(blocos.filter((b) => b.tipo === "tabela_parcelas")).toHaveLength(1);
@@ -154,6 +217,58 @@ describe("contrato", () => {
       if (nome === "tabela_parcelas" || nome === "assinaturas") continue;
       expect(vars, nome).toHaveProperty([nome]);
     }
+  });
+
+  it("sem CNPJ, deixa a linha em branco para preencher à mão", () => {
+    const semCnpj = { ...dados, empresa: { ...dados.empresa, cnpj: "" } };
+    const vars = montarVariaveis(semCnpj);
+    expect(vars["empresa.cnpj"]).toBe(LINHA_EM_BRANCO);
+    expect(vars["credor.documento"]).toBe(LINHA_EM_BRANCO);
+    expect(LINHA_EM_BRANCO).toMatch(/^_{20,}$/);
+    const texto = preencherModelo(MODELO_PADRAO, vars)
+      .blocos.map((b) => ("texto" in b ? b.texto : ""))
+      .join("\n");
+    expect(texto).toContain(`MC Créditos, inscrita no CNPJ sob o nº ${LINHA_EM_BRANCO}, com sede em Salvador - BA, neste ato representada por Fulano de Tal`);
+  });
+
+  it("sem responsável, omite a representação", () => {
+    const empresa = { ...dados.empresa, razaoSocial: "  " };
+    expect(qualificacaoEmpresa(empresa)).toBe("MC Créditos, inscrita no CNPJ sob o nº 11.222.333/0001-81, com sede em Salvador - BA");
+    // Titular do PIX vazio cai para o responsável e, sem ele, para a empresa
+    expect(montarVariaveis({ ...dados, empresa: { ...empresa, nomeRecebedorPix: "" } })["pix.titular"]).toBe("MC Créditos");
+  });
+
+  it("CPF do representante só entra quando é um CPF", () => {
+    const empresa = { ...dados.empresa, documento: "11222333000181" };
+    expect(qualificacaoEmpresa(empresa)).toBe(
+      "MC Créditos, inscrita no CNPJ sob o nº 11.222.333/0001-81, com sede em Salvador - BA, neste ato representada por Fulano de Tal",
+    );
+  });
+
+  it("credor é a empresa, também em modelos antigos que usam credor.*", () => {
+    const vars = montarVariaveis(dados);
+    expect(vars["credor.nome"]).toBe("MC Créditos");
+    expect(vars["empresa.nome"]).toBe("MC Créditos");
+    expect(vars["credor.documento"]).toBe("11.222.333/0001-81");
+    expect(vars["empresa.cnpj"]).toBe("11.222.333/0001-81");
+    expect(vars["responsavel.nome"]).toBe("Fulano de Tal");
+    expect(vars["responsavel.documento"]).toBe("529.982.247-25");
+  });
+
+  it("modelo salvo igual ao padrão antigo passa a usar o novo; personalizado fica como está", () => {
+    const antigo = MODELO_ANTIGO.replace(/\n/g, "\r\n");
+    expect(ehModeloPadrao(antigo)).toBe(true);
+    expect(modeloEmUso(antigo)).toBe(MODELO_PADRAO);
+    expect(ehModeloPadrao("")).toBe(true);
+    expect(ehModeloPadrao(`  ${MODELO_PADRAO}  `)).toBe(true);
+    const personalizado = MODELO_ANTIGO.replace("Cláusula 7ª – Do foro", "Cláusula 7ª – Do foro escolhido");
+    expect(ehModeloPadrao(personalizado)).toBe(false);
+    expect(modeloEmUso(personalizado)).toBe(personalizado.trim());
+    // O texto do dono continua igual, mas o credor dele agora é a empresa
+    const texto = preencherModelo(personalizado, montarVariaveis(dados))
+      .blocos.map((b) => ("texto" in b ? b.texto : ""))
+      .join("\n");
+    expect(texto).toContain("**CREDOR:** MC Créditos, inscrito no CPF/CNPJ sob o nº 11.222.333/0001-81, com endereço em Salvador - BA");
   });
 
   it("aponta variável digitada errado", () => {

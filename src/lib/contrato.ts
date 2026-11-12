@@ -1,6 +1,6 @@
 import { NOME_SISTEMA } from "./emprestimos";
 import { cetMensal, type Periodicidade, type Sistema } from "./finance";
-import { formatCentavos, formatCPF, formatData, formatPercentual } from "./format";
+import { formatCentavos, formatCNPJ, formatCPF, formatData, formatPercentual } from "./format";
 import { reaisPorExtenso } from "./extenso";
 import { exibirChavePix } from "./pix";
 
@@ -10,6 +10,60 @@ import { exibirChavePix } from "./pix";
  * parágrafos, {{tabela_parcelas}} e {{assinaturas}} viram blocos próprios.
  */
 export const MODELO_PADRAO = `# CONTRATO DE EMPRÉSTIMO PESSOAL
+
+**CREDOR:** {{empresa.qualificacao}}, doravante chamada CREDOR.
+
+**DEVEDOR:** {{cliente.nome}}, inscrito no CPF sob o nº {{cliente.cpf}}, residente em {{cliente.endereco}}, doravante chamado DEVEDOR.
+
+As partes acima celebram este contrato de empréstimo de dinheiro (mútuo), que se rege pelas cláusulas a seguir.
+
+## Cláusula 1ª – Do valor
+
+O CREDOR empresta ao DEVEDOR a quantia de **{{valor}}** ({{valor_extenso}}), entregue em {{data_liberacao}}, da qual o DEVEDOR dá plena quitação ao assinar este contrato.
+
+## Cláusula 2ª – Dos juros e das parcelas
+
+Sobre o valor emprestado incidem juros de {{taxa}} ao mês, calculados pelo sistema {{sistema}}. O DEVEDOR pagará {{parcelas}} parcelas {{periodicidade}}, que somam **{{total}}** ({{total_extenso}}), com custo efetivo total (CET) de {{cet}} ao mês, nos valores e datas abaixo:
+
+{{tabela_parcelas}}
+
+## Cláusula 3ª – Da forma de pagamento
+
+Os pagamentos serão feitos por PIX para a chave {{pix}}, em nome de {{pix.titular}}, ou em dinheiro mediante recibo.
+
+## Cláusula 4ª – Do atraso
+
+A parcela paga depois do vencimento terá multa de {{multa}} sobre o valor em atraso e juros de mora de {{mora}} ao mês, calculados por dia de atraso.
+
+O atraso de qualquer parcela por mais de 30 dias permite ao CREDOR considerar vencidas as parcelas seguintes e cobrar de uma vez o saldo devedor, com os encargos acima.
+
+## Cláusula 5ª – Da quitação antecipada
+
+O DEVEDOR pode quitar o saldo a qualquer tempo, total ou parcialmente, com redução proporcional dos juros das parcelas que ainda não venceram (art. 52, § 2º, do Código de Defesa do Consumidor).
+
+## Cláusula 6ª – Dos dados pessoais
+
+O DEVEDOR autoriza o uso dos dados informados neste contrato apenas para a sua execução e cobrança, nos termos da Lei nº 13.709/2018 (LGPD).
+
+## Cláusula 7ª – Do foro
+
+Fica eleito o foro da comarca de {{credor.cidade}} para resolver qualquer questão deste contrato.
+
+E, por estarem de acordo, as partes assinam este contrato em duas vias de igual teor, junto com duas testemunhas.
+
+{{credor.cidade}}, {{data_extenso}}.
+
+{{assinaturas}}
+`;
+
+/**
+ * Modelos padrão de versões anteriores, guardados para reconhecer quem salvou
+ * o padrão sem mexer: esse modelo passa a usar o padrão atual sozinho.
+ * Nunca edite estes textos; ao mudar o MODELO_PADRAO, acrescente o anterior aqui.
+ */
+const MODELOS_PADRAO_ANTERIORES = [
+  // Até novembro de 2026: credor era a pessoa física (nome e CPF das Configurações)
+  `# CONTRATO DE EMPRÉSTIMO PESSOAL
 
 **CREDOR:** {{credor.nome}}, inscrito no CPF/CNPJ sob o nº {{credor.documento}}, com endereço em {{credor.cidade}}, doravante chamado CREDOR.
 
@@ -54,10 +108,40 @@ E, por estarem de acordo, as partes assinam este contrato em duas vias de igual 
 {{credor.cidade}}, {{data_extenso}}.
 
 {{assinaturas}}
-`;
+`,
+];
+
+function normalizarModelo(texto: string) {
+  return texto.replace(/\r\n/g, "\n").trim();
+}
+
+/** Vazio, igual ao padrão atual ou igual a um padrão antigo: não é personalizado. */
+export function ehModeloPadrao(modelo: string): boolean {
+  const n = normalizarModelo(modelo);
+  return n === "" || [MODELO_PADRAO, ...MODELOS_PADRAO_ANTERIORES].some((m) => normalizarModelo(m) === n);
+}
+
+/** O texto que vale para o contrato: o modelo salvo pelo dono ou, se não houver, o padrão atual. */
+export function modeloEmUso(salvo: string): string {
+  return ehModeloPadrao(salvo) ? MODELO_PADRAO : salvo.trim();
+}
 
 export type DadosContrato = {
-  empresa: { nome: string; razaoSocial: string; documento: string; cidade: string; tipoChavePix: string; chavePix: string };
+  empresa: {
+    /** Nome da empresa (credora), ex.: "MC Créditos" */
+    nome: string;
+    /** CNPJ da empresa, só dígitos; vazio vira linha em branco no contrato */
+    cnpj: string;
+    /** Nome do responsável, que representa a empresa; vazio omite a representação */
+    razaoSocial: string;
+    /** CPF (ou CNPJ) do responsável, só dígitos */
+    documento: string;
+    cidade: string;
+    tipoChavePix: string;
+    chavePix: string;
+    /** Titular da chave PIX; vazio usa o responsável ou a empresa */
+    nomeRecebedorPix: string;
+  };
   cliente: { nome: string; cpf: string; endereco: string };
   emprestimo: {
     valorCentavos: number;
@@ -82,8 +166,33 @@ function dataPorExtenso(iso: string) {
 
 function documento(doc: string) {
   if (doc.length === 11) return formatCPF(doc);
-  if (doc.length === 14) return exibirChavePix("cnpj", doc);
+  if (doc.length === 14) return formatCNPJ(doc);
   return doc;
+}
+
+/** Espaço para escrever à mão quando o dado não foi informado. */
+export const LINHA_EM_BRANCO = "________________________";
+
+/** CNPJ da empresa formatado, ou a linha em branco para preencher à mão. */
+export function cnpjOuLinha(cnpj: string): string {
+  return /^\d{14}$/.test(cnpj) ? formatCNPJ(cnpj) : LINHA_EM_BRANCO;
+}
+
+/**
+ * Quem é o credor, pronto para o contrato:
+ * "MC Créditos, inscrita no CNPJ sob o nº 11.222.333/0001-81, com sede em Salvador - BA,
+ * neste ato representada por Fulano de Tal, CPF nº 529.982.247-25".
+ * Sem responsável, o trecho "neste ato representada por" sai; o CPF só entra se for CPF.
+ */
+export function qualificacaoEmpresa(e: DadosContrato["empresa"]): string {
+  let texto = `${e.nome}, inscrita no CNPJ sob o nº ${cnpjOuLinha(e.cnpj)}`;
+  texto += `, com sede em ${e.cidade || "[preencha nas Configurações]"}`;
+  const responsavel = e.razaoSocial.trim();
+  if (responsavel) {
+    texto += `, neste ato representada por ${responsavel}`;
+    if (/^\d{11}$/.test(e.documento)) texto += `, CPF nº ${formatCPF(e.documento)}`;
+  }
+  return texto;
 }
 
 const PLURAL_PERIODO: Record<Periodicidade, string> = {
@@ -94,10 +203,14 @@ const PLURAL_PERIODO: Record<Periodicidade, string> = {
 
 /** Lista de variáveis disponíveis, com descrição (mostrada no editor do modelo). */
 export const VARIAVEIS: Array<[string, string]> = [
-  ["credor.nome", "Seu nome completo ou razão social"],
-  ["credor.documento", "Seu CPF ou CNPJ"],
-  ["credor.cidade", "Sua cidade"],
-  ["empresa.nome", "Nome da empresa (MC Créditos)"],
+  ["empresa.qualificacao", "Empresa credora completa: nome, CNPJ, sede e quem a representa"],
+  ["empresa.nome", "Nome da empresa (MC Créditos), que é o credor"],
+  ["empresa.cnpj", "CNPJ da empresa (sem CNPJ: linha em branco para preencher à mão)"],
+  ["responsavel.nome", "Nome do responsável, que assina pela empresa"],
+  ["responsavel.documento", "CPF do responsável"],
+  ["credor.nome", "Nome do credor (igual a empresa.nome)"],
+  ["credor.documento", "CNPJ do credor (igual a empresa.cnpj)"],
+  ["credor.cidade", "Cidade da empresa"],
   ["cliente.nome", "Nome do cliente"],
   ["cliente.cpf", "CPF do cliente"],
   ["cliente.endereco", "Endereço do cliente"],
@@ -113,6 +226,7 @@ export const VARIAVEIS: Array<[string, string]> = [
   ["total_extenso", "Total por extenso"],
   ["cet", "Custo efetivo total ao mês"],
   ["pix", "Sua chave PIX"],
+  ["pix.titular", "Nome do titular da chave PIX"],
   ["multa", "Multa por atraso"],
   ["mora", "Juros de mora ao mês"],
   ["data_extenso", "Data de hoje por extenso"],
@@ -123,12 +237,17 @@ export const VARIAVEIS: Array<[string, string]> = [
 export function montarVariaveis(d: DadosContrato): Record<string, string> {
   const total = d.parcelas.reduce((s, p) => s + p.valor_centavos, 0);
   const cet = cetMensal(d.emprestimo.valorCentavos, d.parcelas.map((p) => p.valor_centavos), d.emprestimo.periodicidade);
-  const credor = d.empresa.razaoSocial || d.empresa.nome;
+  const cnpj = cnpjOuLinha(d.empresa.cnpj);
   return {
-    "credor.nome": credor,
-    "credor.documento": documento(d.empresa.documento) || "[preencha nas Configurações]",
-    "credor.cidade": d.empresa.cidade || "[preencha nas Configurações]",
+    "empresa.qualificacao": qualificacaoEmpresa(d.empresa),
     "empresa.nome": d.empresa.nome,
+    "empresa.cnpj": cnpj,
+    "responsavel.nome": d.empresa.razaoSocial.trim() || "[preencha nas Configurações]",
+    "responsavel.documento": documento(d.empresa.documento) || LINHA_EM_BRANCO,
+    // O credor é a empresa (modelos antigos usam credor.*)
+    "credor.nome": d.empresa.nome,
+    "credor.documento": cnpj,
+    "credor.cidade": d.empresa.cidade || "[preencha nas Configurações]",
     "cliente.nome": d.cliente.nome,
     "cliente.cpf": formatCPF(d.cliente.cpf),
     "cliente.endereco": d.cliente.endereco || "[endereço não cadastrado]",
@@ -144,6 +263,7 @@ export function montarVariaveis(d: DadosContrato): Record<string, string> {
     total_extenso: reaisPorExtenso(total),
     cet: cet === null ? "-" : formatPercentual(cet),
     pix: d.empresa.chavePix ? exibirChavePix(d.empresa.tipoChavePix, d.empresa.chavePix) : "[preencha nas Configurações]",
+    "pix.titular": d.empresa.nomeRecebedorPix.trim() || d.empresa.razaoSocial.trim() || d.empresa.nome,
     multa: formatPercentual(d.emprestimo.multaPercentual / 100),
     mora: formatPercentual(d.emprestimo.moraPercentual / 100),
     data_extenso: dataPorExtenso(d.hoje),

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { MODELO_PADRAO, VARIAVEIS } from "@/lib/contrato";
+import { ehModeloPadrao, modeloEmUso, VARIAVEIS } from "@/lib/contrato";
 import { requireUser } from "@/lib/supabase/server";
 
 import { ModeloForm } from "./modelo-form";
@@ -14,7 +14,8 @@ export default async function ModeloContratoPage() {
     supabase.from("configuracoes").select("modelo_contrato").maybeSingle(),
     supabase.from("perfis").select("papel").maybeSingle(),
   ]);
-  const personalizado = Boolean(config?.modelo_contrato.trim());
+  // Modelo salvo igual a um padrão (atual ou antigo) conta como padrão e recebe o texto novo
+  const personalizado = !ehModeloPadrao(config?.modelo_contrato ?? "");
 
   return (
     <div className="grid gap-5">
@@ -33,7 +34,7 @@ export default async function ModeloContratoPage() {
       </p>
 
       {perfil?.papel === "admin" ? (
-        <ModeloForm modelo={config?.modelo_contrato.trim() || MODELO_PADRAO} personalizado={personalizado} />
+        <ModeloForm modelo={modeloEmUso(config?.modelo_contrato ?? "")} personalizado={personalizado} />
       ) : (
         <p className="text-muted-foreground">Só o dono pode alterar o modelo.</p>
       )}

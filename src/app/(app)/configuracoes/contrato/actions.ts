@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import type { EstadoForm } from "@/components/app/form";
 import { falha, mensagemDoBanco } from "@/lib/acoes";
-import { MODELO_PADRAO, preencherModelo, VARIAVEIS } from "@/lib/contrato";
+import { ehModeloPadrao, preencherModelo, VARIAVEIS } from "@/lib/contrato";
 import { requireUser } from "@/lib/supabase/server";
 
 export async function salvarModeloContrato(_anterior: EstadoForm, formData: FormData): Promise<EstadoForm> {
@@ -28,7 +28,7 @@ export async function salvarModeloContrato(_anterior: EstadoForm, formData: Form
   const { data, error } = await supabase
     .from("configuracoes")
     // Modelo igual ao padrão é guardado vazio, para receber melhorias futuras do padrão
-    .update({ modelo_contrato: modelo === MODELO_PADRAO.trim() ? "" : modelo })
+    .update({ modelo_contrato: ehModeloPadrao(modelo) ? "" : modelo })
     .eq("id", true)
     .select("id");
   if (error) return falha(valores, mensagemDoBanco(error));

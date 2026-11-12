@@ -55,7 +55,7 @@ export default async function EmprestimoPage({ params, searchParams }: PageProps
       .maybeSingle(),
     supabase
       .from("configuracoes")
-      .select("multa_percentual, mora_percentual_mes, razao_social, documento_empresa, cidade, chave_pix")
+      .select("multa_percentual, mora_percentual_mes, cnpj_empresa, cidade, chave_pix")
       .maybeSingle(),
     supabase.from("perfis").select("papel").maybeSingle(),
     supabase.from("emprestimos").select("id").eq("renegociado_de", id).maybeSingle(),
@@ -227,7 +227,7 @@ export default async function EmprestimoPage({ params, searchParams }: PageProps
 
       <ContratoCard
         emprestimoId={e.id}
-        dadosIncompletos={!config?.razao_social || !config?.documento_empresa || !config?.cidade || !config?.chave_pix}
+        dadosIncompletos={!config?.cnpj_empresa || !config?.cidade || !config?.chave_pix}
       />
 
       <Documentos documentos={e.documentos} emprestimoId={e.id} podeApagar={admin} voltar={`/emprestimos/${e.id}`} />

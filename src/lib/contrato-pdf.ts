@@ -1,6 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 
-import type { Bloco, DadosContrato } from "./contrato";
+import { cnpjOuLinha, type Bloco, type DadosContrato } from "./contrato";
 import { formatCentavos, formatCPF, formatData } from "./format";
 
 const A4: [number, number] = [595.28, 841.89];
@@ -150,15 +150,23 @@ class Escritor {
     this.y -= 10;
   }
 
-  assinaturas(credor: string, cliente: string, cpfCliente: string) {
-    const bloco = (x: number, linha1: string, linha2: string) => {
+  assinaturas(empresa: DadosContrato["empresa"], cliente: string, cpfCliente: string) {
+    const bloco = (x: number, linha1: string, linha2: string, linha3 = "") => {
       this.pagina.drawLine({ start: { x, y: this.y }, end: { x: x + 220, y: this.y }, thickness: 0.8, color: TEXTO });
       this.pagina.drawText(seguro(linha1, this.f.negrito), { x, y: this.y - 12, size: 9, font: this.f.negrito, color: TEXTO });
       this.pagina.drawText(seguro(linha2, this.f.normal), { x, y: this.y - 24, size: 8.5, font: this.f.normal, color: CINZA });
+      if (linha3) this.pagina.drawText(seguro(linha3, this.f.normal), { x, y: this.y - 35, size: 8.5, font: this.f.normal, color: CINZA });
     };
     this.espaco(170);
     this.y -= 40;
-    bloco(MARGEM, credor.slice(0, 45), "CREDOR");
+    // O credor é a empresa; quem assina por ela é o responsável, se houver
+    const responsavel = empresa.razaoSocial.trim();
+    bloco(
+      MARGEM,
+      empresa.nome.slice(0, 45),
+      `CREDOR · CNPJ ${cnpjOuLinha(empresa.cnpj)}`,
+      responsavel ? `Representada por ${responsavel}`.slice(0, 50) : "",
+    );
     bloco(MARGEM + LARGURA - 220, cliente.slice(0, 45), `DEVEDOR · CPF ${formatCPF(cpfCliente)}`);
     this.y -= 70;
     bloco(MARGEM, "Testemunha 1", "Nome e CPF:");
@@ -169,9 +177,8 @@ class Escritor {
 
 export async function gerarContratoPDF(blocos: Bloco[], dados: DadosContrato): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
-  const credor = dados.empresa.razaoSocial || dados.empresa.nome;
   doc.setTitle(`Contrato - ${dados.cliente.nome}`);
-  doc.setAuthor(credor);
+  doc.setAuthor(dados.empresa.nome);
   doc.setCreator(dados.empresa.nome);
   doc.setLanguage("pt-BR");
 
@@ -190,7 +197,7 @@ export async function gerarContratoPDF(blocos: Bloco[], dados: DadosContrato): P
       e.paragrafo(b.texto);
       e.y -= 7;
     } else if (b.tipo === "tabela_parcelas") e.tabela(dados.parcelas);
-    else e.assinaturas(credor, dados.cliente.nome, dados.cliente.cpf);
+    else e.assinaturas(dados.empresa, dados.cliente.nome, dados.cliente.cpf);
   }
   return doc.save();
 }

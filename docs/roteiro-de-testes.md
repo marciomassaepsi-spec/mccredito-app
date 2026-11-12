@@ -15,11 +15,14 @@ número do passo e o que apareceu na tela.
 
 ## 2. Configurações
 
-- [ ] **2.1** Toque na engrenagem. Preencha nome completo, CPF, cidade (`Salvador - BA`), tipo
-      **Celular** e a sua chave PIX (o celular com DDD, só os números). Toque em **Salvar configurações**.
+- [ ] **2.1** Toque na engrenagem. Preencha cidade (`Salvador - BA`), nome completo e CPF do
+      responsável, tipo **Celular** e a sua chave PIX (o celular com DDD, só os números). Deixe o
+      **CNPJ da empresa** vazio por enquanto. Toque em **Salvar configurações**.
 - [ ] **2.2** Aparece "Configurações salvas." e a chave aparece formatada, como `(71) 9xxxx-xxxx`.
 - [ ] **2.3** Digite um CPF errado e salve. O campo fica vermelho com "CPF ou CNPJ inválido." e o
       resto do que você digitou continua lá. Corrija e salve de novo.
+- [ ] **2.4** Digite `11.222.333/0001-80` no **CNPJ da empresa** e salve. O campo fica vermelho com
+      "CNPJ inválido. Confira os 14 números." Apague o CNPJ e salve de novo (ele é opcional).
 
 ## 3. Calculadora
 
@@ -42,8 +45,14 @@ número do passo e o que apareceu na tela.
 - [ ] **5.2** Na ficha, toque em **Empréstimo**. Valor `1.500,00`, taxa `9,99`, `6` parcelas.
       Toque em **Revisar empréstimo**: aparece o resumo com as 6 datas.
 - [ ] **5.3** **Confirmar e salvar**. Abre o empréstimo com 6 parcelas "A vencer".
-- [ ] **5.4** **Abrir PDF**: o contrato abre com seus dados, os do cliente, o valor por extenso e a
-      tabela de parcelas. (Peça para um advogado revisar o texto antes de usar de verdade.)
+- [ ] **5.4** **Abrir PDF**: o contrato abre com os dados da empresa, os do cliente, o valor por
+      extenso e a tabela de parcelas. O CREDOR é a MC Créditos, "inscrita no CNPJ sob o nº" seguido
+      de uma linha em branco para escrever à mão, "neste ato representada por" você. A assinatura
+      do CREDOR é da MC Créditos e também tem a linha no lugar do CNPJ. (Peça para um advogado
+      revisar o texto antes de usar de verdade.)
+- [ ] **5.4b** Em **Configurações**, preencha o **CNPJ da empresa** (o CNPJ de verdade) e salve: ele
+      aparece formatado, como `00.000.000/0000-00`. Abra o PDF de novo: o CNPJ aparece no lugar da
+      linha em branco, no texto e na assinatura.
 - [ ] **5.5** **Guardar cópia**: o contrato aparece em **Documentos** e abre ao tocar.
 
 ## 6. Pagamentos

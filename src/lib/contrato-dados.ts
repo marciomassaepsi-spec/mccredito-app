@@ -2,7 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { MODELO_PADRAO, type DadosContrato } from "./contrato";
+import { modeloEmUso, type DadosContrato } from "./contrato";
 import { hojeISO } from "./format";
 import type { Database } from "./supabase/database.types";
 
@@ -22,21 +22,25 @@ export async function carregarDadosContrato(
       .maybeSingle(),
     supabase
       .from("configuracoes")
-      .select("nome_empresa, razao_social, documento_empresa, cidade, tipo_chave_pix, chave_pix, multa_percentual, mora_percentual_mes, modelo_contrato")
+      .select(
+        "nome_empresa, cnpj_empresa, razao_social, documento_empresa, cidade, tipo_chave_pix, chave_pix, nome_recebedor_pix, multa_percentual, mora_percentual_mes, modelo_contrato",
+      )
       .maybeSingle(),
   ]);
   if (!e || !e.clientes || !config) return null;
 
   return {
-    modelo: config.modelo_contrato.trim() || MODELO_PADRAO,
+    modelo: modeloEmUso(config.modelo_contrato),
     dados: {
       empresa: {
         nome: config.nome_empresa,
+        cnpj: config.cnpj_empresa,
         razaoSocial: config.razao_social,
         documento: config.documento_empresa,
         cidade: config.cidade,
         tipoChavePix: config.tipo_chave_pix,
         chavePix: config.chave_pix,
+        nomeRecebedorPix: config.nome_recebedor_pix,
       },
       cliente: { nome: e.clientes.nome, cpf: e.clientes.cpf ?? "", endereco: e.clientes.endereco },
       emprestimo: {

@@ -7,6 +7,7 @@ import { salvarConfiguracoes } from "./actions";
 
 export type ConfigInicial = {
   nome_empresa: string;
+  cnpj_empresa: string;
   razao_social: string;
   documento_empresa: string;
   cidade: string;
@@ -38,18 +39,40 @@ export function ConfigForm({ inicial }: { inicial: ConfigInicial }) {
     // A chave muda a cada envio com erro: o formulário remonta com o que foi digitado
     <form onSubmit={aoEnviar} className="grid gap-5" noValidate>
       <Secao titulo="Empresa">
-        <Campo id="nome_empresa" rotulo="Nome da empresa" erro={e.nome_empresa}>
+        <Campo id="nome_empresa" rotulo="Nome da empresa" erro={e.nome_empresa} dica="Aparece no contrato como credor.">
           <Entrada id="nome_empresa" name="nome_empresa" defaultValue={v("nome_empresa")} erro={e.nome_empresa} />
         </Campo>
-        <Campo id="razao_social" rotulo="Nome completo do responsável ou razão social" erro={e.razao_social} dica="Aparece no contrato como credor.">
-          <Entrada id="razao_social" name="razao_social" defaultValue={v("razao_social")} erro={e.razao_social} />
-        </Campo>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Campo id="documento_empresa" rotulo="CPF ou CNPJ" erro={e.documento_empresa}>
-            <Entrada id="documento_empresa" name="documento_empresa" inputMode="numeric" defaultValue={v("documento_empresa")} erro={e.documento_empresa} />
+          <Campo
+            id="cnpj_empresa"
+            rotulo="CNPJ da empresa"
+            erro={e.cnpj_empresa}
+            dica="Opcional. Sem CNPJ, o contrato sai com uma linha em branco para escrever à mão."
+          >
+            <Entrada
+              id="cnpj_empresa"
+              name="cnpj_empresa"
+              inputMode="numeric"
+              placeholder="00.000.000/0000-00"
+              defaultValue={v("cnpj_empresa")}
+              erro={e.cnpj_empresa}
+            />
           </Campo>
           <Campo id="cidade" rotulo="Cidade" erro={e.cidade} dica="Ex.: Salvador - BA">
             <Entrada id="cidade" name="cidade" defaultValue={v("cidade")} erro={e.cidade} />
+          </Campo>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Campo
+            id="razao_social"
+            rotulo="Nome completo do responsável"
+            erro={e.razao_social}
+            dica="Assina o contrato representando a empresa. Se ficar vazio, o contrato não cita representante."
+          >
+            <Entrada id="razao_social" name="razao_social" defaultValue={v("razao_social")} erro={e.razao_social} />
+          </Campo>
+          <Campo id="documento_empresa" rotulo="CPF do responsável" erro={e.documento_empresa}>
+            <Entrada id="documento_empresa" name="documento_empresa" inputMode="numeric" defaultValue={v("documento_empresa")} erro={e.documento_empresa} />
           </Campo>
         </div>
       </Secao>

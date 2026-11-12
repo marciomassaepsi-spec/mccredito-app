@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   centavosParaTexto,
+  cnpjValido,
   cpfValido,
   formatCentavos,
+  formatCNPJ,
   formatData,
   formatDataExtenso,
   formatPercentual,
@@ -75,6 +77,23 @@ describe("CPF", () => {
 
   it("mascara nas listagens", () => {
     expect(mascararCPF("52998224725")).toBe("***.982.247-**");
+  });
+});
+
+describe("CNPJ", () => {
+  it("valida dígitos verificadores", () => {
+    expect(cnpjValido("11.222.333/0001-81")).toBe(true);
+    expect(cnpjValido("11222333000181")).toBe(true);
+    expect(cnpjValido("11.222.333/0001-80")).toBe(false);
+    expect(cnpjValido("11111111111111")).toBe(false);
+    expect(cnpjValido("123")).toBe(false);
+  });
+
+  it("formata com pontos, barra e traço", () => {
+    expect(formatCNPJ("11222333000181")).toBe("11.222.333/0001-81");
+    expect(formatCNPJ("11.222.333/0001-81")).toBe("11.222.333/0001-81");
+    expect(formatCNPJ("")).toBe("");
+    expect(formatCNPJ(null)).toBe("");
   });
 });
 
