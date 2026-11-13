@@ -2,6 +2,7 @@ import { Calculator, ChevronRight, Download, FileText, Megaphone, UserPlus } fro
 import Link from "next/link";
 
 import { GraficoAtraso, GraficoMensal } from "@/components/app/graficos";
+import { jurosAtrasoDiario } from "@/lib/finance";
 import { formatCentavos, formatDataExtenso, formatPercentual, hojeISO } from "@/lib/format";
 import { calcularIndicadores, ultimosMeses } from "@/lib/painel";
 import { requireUser } from "@/lib/supabase/server";
@@ -52,7 +53,7 @@ export default async function InicioPage() {
       .eq("estornado", false)
       .gte("pago_em", inicio)
       .lte("pago_em", fim),
-    supabase.from("configuracoes").select("limite_contratos_ativos").maybeSingle(),
+    supabase.from("configuracoes").select("limite_contratos_ativos, juros_atraso_dia_percentual").maybeSingle(),
     carregarVendas(supabase, mesAtualJanela.inicio, mesAtualJanela.fim),
   ]);
   const vendas = resumir(vendasMes.emprestimos.filter(ehVenda));
@@ -63,6 +64,7 @@ export default async function InicioPage() {
     previstas: previstas ?? [],
     pagamentos: pagamentos ?? [],
     valoresAtivos: (ativos ?? []).map((a) => a.valor_centavos),
+    jurosDiario: jurosAtrasoDiario(config?.juros_atraso_dia_percentual),
   });
   const limite = config?.limite_contratos_ativos ?? 150;
   const mesAtual = meses[meses.length - 1].rotulo;
@@ -80,7 +82,7 @@ export default async function InicioPage() {
         <p className="font-heading text-[clamp(2rem,10.5vw,3rem)] leading-tight font-black whitespace-nowrap">{formatCentavos(ind.carteiraCentavos)}</p>
         <p className="mt-1 text-sm text-white/85">
           {ind.atrasadoCentavos > 0
-            ? `${formatCentavos(ind.atrasadoCentavos)} atrasado · ${formatPercentual(ind.inadimplencia, 1)} da carteira`
+            ? `${formatCentavos(ind.atrasadoCentavos)} atrasado, com juros de atraso · ${formatPercentual(ind.inadimplencia, 1)} da carteira`
             : "Nada atrasado"}
         </p>
       </section>
@@ -91,11 +93,11 @@ export default async function InicioPage() {
           valor={formatCentavos(ind.recebidoMesCentavos)}
           detalhe={`previsto ${formatCentavos(ind.previstoMesCentavos)}`}
         />
-        <Indicador rotulo="Juros recebidos no mês" valor={formatCentavos(ind.jurosMesCentavos)} detalhe="com multa e mora, sem descontos" />
+        <Indicador rotulo="Juros recebidos no mês" valor={formatCentavos(ind.jurosMesCentavos)} detalhe="com juros de atraso, sem descontos" />
         <Indicador
           rotulo="Inadimplência"
           valor={formatPercentual(ind.inadimplencia, 1)}
-          detalhe={`${formatCentavos(ind.atrasadoCentavos)} em atraso`}
+          detalhe={`${formatCentavos(ind.atrasadoCentavos)} em atraso, com ${formatCentavos(ind.jurosAtrasoCentavos)} de juros`}
           tom={ind.inadimplencia >= 0.1 ? "atraso" : undefined}
         />
         <Indicador rotulo="Ticket médio" valor={formatCentavos(ind.ticketMedioCentavos)} detalhe="valor emprestado por contrato ativo" />

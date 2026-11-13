@@ -21,10 +21,8 @@ type Modo = (typeof MODOS)[number]["id"];
 
 export type ConfigCalculadora = {
   nomeEmpresa: string;
-  multa: number;
-  mora: number;
-  multaLimite: number;
-  moraLimite: number;
+  /** Juros de atraso por dia, em decimal (1% = 0.01) */
+  jurosAtrasoDia: number;
 };
 
 export function Calculadora({ config }: { config: ConfigCalculadora }) {
@@ -71,12 +69,7 @@ export function Calculadora({ config }: { config: ConfigCalculadora }) {
         {modo === "compostos" && <JurosCompostos />}
         {modo === "taxa" && <DescobrirTaxa />}
         {modo === "atraso" && (
-          <AtualizarAtraso
-            multaPadrao={config.multa}
-            moraPadrao={config.mora}
-            multaLimite={config.multaLimite}
-            moraLimite={config.moraLimite}
-          />
+          <AtualizarAtraso jurosDiaPadrao={config.jurosAtrasoDia} />
         )}
         {modo === "conversao" && <ConverterTaxa />}
       </div>

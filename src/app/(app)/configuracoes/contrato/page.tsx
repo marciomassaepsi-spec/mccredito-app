@@ -16,6 +16,8 @@ export default async function ModeloContratoPage() {
   ]);
   // Modelo salvo igual a um padrão (atual ou antigo) conta como padrão e recebe o texto novo
   const personalizado = !ehModeloPadrao(config?.modelo_contrato ?? "");
+  // Modelo personalizado antigo, ainda com multa e mora na cláusula de atraso
+  const usaMultaMora = personalizado && /\{\{\s*(multa|mora)\s*\}\}/.test(config?.modelo_contrato ?? "");
 
   return (
     <div className="grid gap-5">
@@ -32,6 +34,14 @@ export default async function ModeloContratoPage() {
       <p className="rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground">
         O modelo padrão é um ponto de partida. Antes de usar com clientes, peça para um advogado revisar.
       </p>
+
+      {usaMultaMora && (
+        <p className="rounded-xl bg-late-soft px-4 py-3 text-sm font-semibold text-late">
+          Seu modelo ainda usa {"{{multa}}"} e {"{{mora}}"}. Como agora não há multa, {"{{multa}}"} sai como 0% e {"{{mora}}"} sai
+          como os juros de atraso ao mês (1% ao dia = 30% ao mês). Troque a cláusula de atraso por {"{{juros_atraso_dia}}"} ao dia,
+          como no modelo padrão.
+        </p>
+      )}
 
       {perfil?.papel === "admin" ? (
         <ModeloForm modelo={modeloEmUso(config?.modelo_contrato ?? "")} personalizado={personalizado} />

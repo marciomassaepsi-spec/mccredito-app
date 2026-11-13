@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Selo } from "@/components/app/selo";
 import { buttonVariants } from "@/components/ui/button";
 import { resumirParcelas } from "@/lib/emprestimos";
+import { jurosAtrasoDiario } from "@/lib/finance";
 import { formatCentavos, formatTelefone, hojeISO, mascararCPF } from "@/lib/format";
 import { requireUser } from "@/lib/supabase/server";
 
@@ -36,8 +37,12 @@ export default async function ClientesPage({ searchParams }: PageProps<"/cliente
         : consulta.ilike("nome", `%${busca}%`);
   }
 
-  const { data: clientes, error } = await consulta;
+  const [{ data: clientes, error }, { data: config }] = await Promise.all([
+    consulta,
+    supabase.from("configuracoes").select("juros_atraso_dia_percentual").maybeSingle(),
+  ]);
   const hoje = hojeISO();
+  const jurosDiario = jurosAtrasoDiario(config?.juros_atraso_dia_percentual);
 
   return (
     <div className="grid gap-5">
@@ -82,7 +87,7 @@ export default async function ClientesPage({ searchParams }: PageProps<"/cliente
       <ul className="grid gap-2">
         {clientes?.map((c) => {
           const ativos = c.emprestimos.filter((e) => e.status === "ativo");
-          const resumo = resumirParcelas(ativos.flatMap((e) => e.parcelas), hoje);
+          const resumo = resumirParcelas(ativos.flatMap((e) => e.parcelas), hoje, jurosDiario);
           return (
             <li key={c.id}>
               <Link
@@ -106,6 +111,11 @@ export default async function ClientesPage({ searchParams }: PageProps<"/cliente
                   </span>
                   {resumo.emAbertoCentavos > 0 && <span>{formatCentavos(resumo.emAbertoCentavos)} em aberto</span>}
                 </div>
+                {resumo.atrasadas > 0 && (
+                  <p className="num text-sm font-semibold text-late">
+                    {formatCentavos(resumo.atrasadoCentavos)} atrasado, com {formatCentavos(resumo.jurosAtrasoCentavos)} de juros
+                  </p>
+                )}
               </Link>
             </li>
           );

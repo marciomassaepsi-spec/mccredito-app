@@ -1,4 +1,4 @@
-import { diasEntre } from "./finance";
+import { atualizarAtraso, diasEntre } from "./finance";
 import { recebidoDoPagamento } from "./pagamentos";
 
 export type ParcelaAberta = {
@@ -50,16 +50,23 @@ export function ultimosMeses(hoje: string, n: number): Array<{ chave: string; ro
   return meses;
 }
 
-/** Parte de juros (e encargos) de um pagamento: juros proporcionais da parcela + multa + mora − desconto. */
+/**
+ * Parte de juros de um pagamento: juros proporcionais da parcela + juros de
+ * atraso (gravados em mora; pagamentos antigos podem ter multa) − desconto.
+ */
 export function jurosDoPagamento(p: PagamentoPainel): number {
   const proporcao = p.parcelas && p.parcelas.valor_centavos > 0 ? p.parcelas.juros_centavos / p.parcelas.valor_centavos : 0;
   return Math.round(p.valor_centavos * proporcao) + p.multa_centavos + p.mora_centavos - p.desconto_centavos;
 }
 
 export type Indicadores = {
+  /** Falta receber das parcelas em aberto, sem juros de atraso */
   carteiraCentavos: number;
+  /** Parcelas atrasadas já com os juros de atraso até hoje */
   atrasadoCentavos: number;
-  /** atrasado ÷ carteira, de 0 a 1 */
+  /** Juros de atraso que estão dentro de `atrasadoCentavos` */
+  jurosAtrasoCentavos: number;
+  /** atrasado (com juros) ÷ (carteira + juros de atraso), de 0 a 1 */
   inadimplencia: number;
   recebidoMesCentavos: number;
   previstoMesCentavos: number;
@@ -80,6 +87,8 @@ export function calcularIndicadores(dados: {
   pagamentos: PagamentoPainel[];
   /** Valor emprestado de cada empréstimo ativo */
   valoresAtivos: number[];
+  /** Juros de atraso por dia, em decimal (1% = 0.01) */
+  jurosDiario: number;
   meses?: number;
 }): Indicadores {
   const { hoje } = dados;
@@ -87,6 +96,7 @@ export function calcularIndicadores(dados: {
 
   let carteira = 0;
   let atrasado = 0;
+  let jurosAtraso = 0;
   const faixas = FAIXAS_ATRASO.map((f) => ({ rotulo: f.rotulo, centavos: 0, parcelas: 0 }));
   for (const p of dados.abertas) {
     const emAberto = Math.max(0, p.valor_centavos - p.pago_centavos);
@@ -94,9 +104,11 @@ export function calcularIndicadores(dados: {
     carteira += emAberto;
     const dias = diasEntre(p.vencimento, hoje);
     if (dias > 0) {
-      atrasado += emAberto;
+      const a = atualizarAtraso(emAberto, dias, dados.jurosDiario);
+      atrasado += a.totalCentavos;
+      jurosAtraso += a.jurosCentavos;
       const i = FAIXAS_ATRASO.findIndex((f) => dias >= f.min && dias <= f.max);
-      faixas[i].centavos += emAberto;
+      faixas[i].centavos += a.totalCentavos;
       faixas[i].parcelas += 1;
     }
   }
@@ -119,7 +131,8 @@ export function calcularIndicadores(dados: {
   return {
     carteiraCentavos: carteira,
     atrasadoCentavos: atrasado,
-    inadimplencia: carteira > 0 ? atrasado / carteira : 0,
+    jurosAtrasoCentavos: jurosAtraso,
+    inadimplencia: carteira > 0 ? atrasado / (carteira + jurosAtraso) : 0,
     recebidoMesCentavos: atual?.recebido ?? 0,
     previstoMesCentavos: atual?.previsto ?? 0,
     jurosMesCentavos: jurosMes,

@@ -11,8 +11,8 @@ import { montarVariaveis, preencherModelo } from "@/lib/contrato";
 import { carregarDadosContrato, nomeArquivoContrato } from "@/lib/contrato-dados";
 import { gerarContratoPDF } from "@/lib/contrato-pdf";
 import { hojeISO, parsePercentual, parseReaisParaCentavos } from "@/lib/format";
-import { remarcarVencimentos } from "@/lib/finance";
-import { alocarRecebimento, encargosNaData, planoQuitacao } from "@/lib/pagamentos";
+import { jurosAtrasoDiario, remarcarVencimentos } from "@/lib/finance";
+import { alocarRecebimento, colunasJurosAtraso, encargosNaData, planoQuitacao } from "@/lib/pagamentos";
 import { detalheRenegociacao, observacaoRenegociacao, planejarRenegociacao, saldoParaRenegociar } from "@/lib/renegociacao";
 import { requireUser } from "@/lib/supabase/server";
 
@@ -25,9 +25,10 @@ const data = z
 const forma = z.enum(["pix", "dinheiro", "transferencia", "outro"], { error: "Escolha a forma de pagamento." });
 const uuid = z.string().uuid();
 
-async function encargosDaConfig(supabase: Supabase) {
-  const { data: c } = await supabase.from("configuracoes").select("multa_percentual, mora_percentual_mes").maybeSingle();
-  return { multa: Number(c?.multa_percentual ?? 2) / 100, mora: Number(c?.mora_percentual_mes ?? 1) / 100 };
+/** Juros de atraso por dia das Configurações, em decimal (1% = 0.01). */
+async function jurosDiarioDaConfig(supabase: Supabase) {
+  const { data: c } = await supabase.from("configuracoes").select("juros_atraso_dia_percentual").maybeSingle();
+  return jurosAtrasoDiario(c?.juros_atraso_dia_percentual);
 }
 
 /** Envia o comprovante (se houver). Devolve o caminho, "" sem arquivo, ou um erro. */
@@ -81,10 +82,12 @@ export async function registrarPagamento(_anterior: EstadoForm, formData: FormDa
   if (!parcela) return falha(valores, "Parcela não encontrada.");
 
   // Valores sempre recalculados aqui, com a configuração atual
-  const { multa, mora } = await encargosDaConfig(supabase);
-  const encargos = encargosNaData(parcela, d.pago_em, multa, mora);
+  const jurosDiario = await jurosDiarioDaConfig(supabase);
+  const encargos = encargosNaData(parcela, d.pago_em, jurosDiario);
   const alocacao = alocarRecebimento(d.recebido ?? 0, encargos, d.dispensar === "on");
   if (!alocacao.ok) return falha(valores, alocacao.erro, { recebido: alocacao.erro });
+  // Juros de atraso vão em mora; não há multa
+  const juros = colunasJurosAtraso(alocacao.juros);
 
   const comprovante = await enviarComprovante(supabase, formData, d.emprestimo_id);
   if (!comprovante.ok) return falha(valores, comprovante.erro, { arquivo: comprovante.erro });
@@ -92,8 +95,8 @@ export async function registrarPagamento(_anterior: EstadoForm, formData: FormDa
   const { error } = await supabase.rpc("registrar_pagamento", {
     p_parcela: parcela.id,
     p_valor: alocacao.valor,
-    p_multa: alocacao.multa,
-    p_mora: alocacao.mora,
+    p_multa: juros.multa,
+    p_mora: juros.mora,
     p_desconto: 0,
     p_pago_em: d.pago_em,
     p_forma: d.forma,
@@ -150,19 +153,18 @@ export async function quitarEmprestimo(_anterior: EstadoForm, formData: FormData
   if (!e || e.status !== "ativo") return falha(valores, "Empréstimo não encontrado ou não está ativo.");
 
   const abertas = e.parcelas.filter((p) => p.status === "a_vencer" || p.status === "paga_parcial");
-  const { multa, mora } = await encargosDaConfig(supabase);
-  const plano = planoQuitacao(abertas, Number(e.taxa_percentual) / 100, d.pago_em, multa, mora, d.dispensar === "on");
+  const jurosDiario = await jurosDiarioDaConfig(supabase);
+  const plano = planoQuitacao(abertas, Number(e.taxa_percentual) / 100, d.pago_em, jurosDiario, d.dispensar === "on");
 
   const comprovante = await enviarComprovante(supabase, formData, d.emprestimo_id);
   if (!comprovante.ok) return falha(valores, comprovante.erro, { arquivo: comprovante.erro });
 
   const { error } = await supabase.rpc("quitar_emprestimo", {
     p_emprestimo: e.id,
-    p_itens: plano.itens.map(({ parcela_id, valor, multa: m, mora: j, desconto }) => ({
+    p_itens: plano.itens.map(({ parcela_id, valor, juros, desconto }) => ({
       parcela_id,
       valor,
-      multa: m,
-      mora: j,
+      ...colunasJurosAtraso(juros),
       desconto,
     })),
     p_pago_em: d.pago_em,
@@ -178,7 +180,7 @@ export async function quitarEmprestimo(_anterior: EstadoForm, formData: FormData
 }
 
 // ---------------------------------------------------------------------------
-// Renegociação: o saldo em aberto (+ multa e mora, se o dono quiser) + dinheiro
+// Renegociação: o saldo em aberto (+ juros de atraso, se o dono quiser) + dinheiro
 // novo vira um empréstimo novo, com as parcelas novas
 // ---------------------------------------------------------------------------
 const renegociacaoSchema = z
@@ -233,8 +235,8 @@ export async function renegociarEmprestimo(_anterior: EstadoForm, formData: Form
   }
 
   // Tudo recalculado aqui, com as parcelas e a configuração atuais
-  const { multa, mora } = await encargosDaConfig(supabase);
-  const saldo = saldoParaRenegociar(antigo.parcelas, d.liberado_em, multa, mora);
+  const jurosDiario = await jurosDiarioDaConfig(supabase);
+  const saldo = saldoParaRenegociar(antigo.parcelas, d.liberado_em, jurosDiario);
   const r = planejarRenegociacao({
     saldo,
     somarEncargos: d.somar_encargos === "on",

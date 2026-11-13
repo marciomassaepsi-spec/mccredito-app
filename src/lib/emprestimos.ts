@@ -1,4 +1,5 @@
 import {
+  atualizarAtraso,
   descobrirTaxa,
   diasEntre,
   gerarCronograma,
@@ -128,7 +129,7 @@ export type SituacaoParcela = {
   situacao: Situacao;
   /** Dias de atraso (0 se não está atrasada) */
   diasAtraso: number;
-  /** Quanto falta pagar, sem multa e mora */
+  /** Quanto falta pagar, sem juros de atraso */
   emAbertoCentavos: number;
 };
 
@@ -149,17 +150,27 @@ export type ResumoEmprestimo<T extends ParcelaGravada = ParcelaGravada> = {
   atrasadas: number;
   maiorAtrasoDias: number;
   emAbertoCentavos: number;
+  /** Parcelas atrasadas já com os juros de atraso até hoje */
   atrasadoCentavos: number;
+  /** Só o que falta das parcelas atrasadas, sem juros */
+  atrasadoSemJurosCentavos: number;
+  /** Juros de atraso das parcelas atrasadas até hoje */
+  jurosAtrasoCentavos: number;
   proxima: (T & SituacaoParcela) | null;
 };
 
-export function resumirParcelas<T extends ParcelaGravada>(parcelas: T[], hoje: string): ResumoEmprestimo<T> {
+/**
+ * Resumo das parcelas na data `hoje`. O valor atrasado já vem com os juros de
+ * atraso (`jurosDiario` em decimal, 1% ao dia = 0.01), calculados na hora.
+ */
+export function resumirParcelas<T extends ParcelaGravada>(parcelas: T[], hoje: string, jurosDiario: number): ResumoEmprestimo<T> {
   const ordenadas = [...parcelas].sort((a, b) => a.numero - b.numero);
   let pagas = 0;
   let atrasadas = 0;
   let maiorAtrasoDias = 0;
   let emAberto = 0;
   let atrasado = 0;
+  let juros = 0;
   let proxima: ResumoEmprestimo<T>["proxima"] = null;
 
   for (const p of ordenadas) {
@@ -169,6 +180,7 @@ export function resumirParcelas<T extends ParcelaGravada>(parcelas: T[], hoje: s
     if (s.situacao === "atrasada") {
       atrasadas++;
       atrasado += s.emAbertoCentavos;
+      juros += atualizarAtraso(s.emAbertoCentavos, s.diasAtraso, jurosDiario).jurosCentavos;
       maiorAtrasoDias = Math.max(maiorAtrasoDias, s.diasAtraso);
     }
     if (!proxima && s.emAbertoCentavos > 0) proxima = { ...p, ...s };
@@ -180,7 +192,9 @@ export function resumirParcelas<T extends ParcelaGravada>(parcelas: T[], hoje: s
     atrasadas,
     maiorAtrasoDias,
     emAbertoCentavos: emAberto,
-    atrasadoCentavos: atrasado,
+    atrasadoCentavos: atrasado + juros,
+    atrasadoSemJurosCentavos: atrasado,
+    jurosAtrasoCentavos: juros,
     proxima,
   };
 }

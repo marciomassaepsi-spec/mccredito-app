@@ -5,8 +5,8 @@ import { useState } from "react";
 import { CampoArquivo, useAcaoComArquivo } from "@/components/app/arquivo";
 import { AreaTexto, Campo, Entrada, MensagemForm, Selecao } from "@/components/app/form";
 import { Button } from "@/components/ui/button";
-import { centavosParaTexto, formatCentavos, formatData, parseReaisParaCentavos } from "@/lib/format";
-import { alocarRecebimento, encargosNaData, type ParcelaAberta } from "@/lib/pagamentos";
+import { centavosParaTexto, formatCentavos, formatData, formatPercentual, parseReaisParaCentavos } from "@/lib/format";
+import { alocarRecebimento, detalheAtraso, encargosNaData, type ParcelaAberta } from "@/lib/pagamentos";
 
 import { registrarPagamento } from "../../pagamentos-actions";
 
@@ -15,17 +15,17 @@ type Props = {
   parcela: ParcelaAberta;
   totalParcelas: number;
   hoje: string;
-  multa: number;
-  mora: number;
+  /** Juros de atraso por dia, em decimal (1% = 0.01) */
+  jurosDiario: number;
 };
 
-export function ReceberForm({ emprestimoId, parcela, totalParcelas, hoje, multa, mora }: Props) {
+export function ReceberForm({ emprestimoId, parcela, totalParcelas, hoje, jurosDiario }: Props) {
   const { estado, aoEnviar, enviando } = useAcaoComArquivo(registrarPagamento);
   const [data, setData] = useState(hoje);
   const [dispensar, setDispensar] = useState(false);
   const [recebidoEditado, setRecebidoEditado] = useState<string | null>(null);
 
-  const encargos = encargosNaData(parcela, data || hoje, multa, mora);
+  const encargos = encargosNaData(parcela, data || hoje, jurosDiario);
   const devido = dispensar ? encargos.emAbertoCentavos : encargos.devidoCentavos;
   const recebidoTexto = recebidoEditado ?? centavosParaTexto(devido);
   const recebido = parseReaisParaCentavos(recebidoTexto) ?? 0;
@@ -42,26 +42,30 @@ export function ReceberForm({ emprestimoId, parcela, totalParcelas, hoje, multa,
           Parcela {parcela.numero} de {totalParcelas} · vence {formatData(parcela.vencimento)}
         </p>
         <p className="num font-heading text-3xl font-black">{formatCentavos(devido)}</p>
+        {encargos.diasAtraso > 0 && !dispensar && (
+          <p className="num -mt-1 text-sm text-white/80">
+            {detalheAtraso({
+              valorCentavos: encargos.emAbertoCentavos,
+              jurosCentavos: encargos.jurosCentavos,
+              diasAtraso: encargos.diasAtraso,
+              pagoEmParte: parcela.pago_centavos > 0,
+            })}
+          </p>
+        )}
         <dl className="num grid gap-1 border-t border-white/15 pt-2 text-sm">
-          <div className="flex justify-between">
-            <dt className="text-white/80">Em aberto da parcela</dt>
+          <div className="flex justify-between gap-3">
+            <dt className="text-white/80">{parcela.pago_centavos > 0 ? "Falta da parcela (já pago em parte)" : "Valor da parcela"}</dt>
             <dd className="font-bold text-[#f0d45a]">{formatCentavos(encargos.emAbertoCentavos)}</dd>
           </div>
           {encargos.diasAtraso > 0 && (
-            <>
-              <div className="flex justify-between">
-                <dt className="text-white/80">Multa ({encargos.diasAtraso} dias de atraso)</dt>
-                <dd className={`font-bold ${dispensar ? "text-white/50 line-through" : "text-[#f0d45a]"}`}>
-                  {formatCentavos(encargos.multaCentavos)}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-white/80">Juros de mora</dt>
-                <dd className={`font-bold ${dispensar ? "text-white/50 line-through" : "text-[#f0d45a]"}`}>
-                  {formatCentavos(encargos.moraCentavos)}
-                </dd>
-              </div>
-            </>
+            <div className="flex justify-between gap-3">
+              <dt className="text-white/80">
+                Juros de atraso ({formatPercentual(jurosDiario, 3)} ao dia × {encargos.diasAtraso} {encargos.diasAtraso === 1 ? "dia" : "dias"})
+              </dt>
+              <dd className={`font-bold whitespace-nowrap ${dispensar ? "text-white/50 line-through" : "text-[#f0d45a]"}`}>
+                {formatCentavos(encargos.jurosCentavos)}
+              </dd>
+            </div>
           )}
         </dl>
       </section>
@@ -103,7 +107,7 @@ export function ReceberForm({ emprestimoId, parcela, totalParcelas, hoje, multa,
             }}
             className="mt-1 size-5 accent-primary"
           />
-          <span className="text-sm">Dispensar multa e mora desta vez</span>
+          <span className="text-sm">Dispensar os juros de atraso desta vez</span>
         </label>
       )}
 

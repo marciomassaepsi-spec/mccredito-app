@@ -21,6 +21,8 @@ número do passo e o que apareceu na tela.
 - [ ] **2.2** Aparece "Configurações salvas." e a chave aparece formatada, como `(71) 9xxxx-xxxx`.
 - [ ] **2.3** Digite um CPF errado e salve. O campo fica vermelho com "CPF ou CNPJ inválido." e o
       resto do que você digitou continua lá. Corrija e salve de novo.
+- [ ] **2.3b** Em **Atraso e cobrança**, o campo **Juros por dia de atraso (%)** vem com `1`. Digite
+      `11` e salve: aparece "Juros por dia de atraso: digite um número de 0 a 10." Volte para `1` e salve.
 - [ ] **2.4** Digite `11.222.333/0001-80` no **CNPJ da empresa** e salve. O campo fica vermelho com
       "CNPJ inválido. Confira os 14 números." Apague o CNPJ e salve de novo (ele é opcional).
 
@@ -29,7 +31,9 @@ número do passo e o que apareceu na tela.
 - [ ] **3.1** Abra **Calculadora**. A primeira tela mostra **6x de R$ 344,31** (R$ 1.500 a 9,99%).
 - [ ] **3.2** Troque para valor `1.000`, taxa `10`, parcelas `6`. Mostra **6x de R$ 229,61**.
 - [ ] **3.3** Toque em **SAC** e depois em **Juros simples**. Os valores digitados continuam.
-- [ ] **3.4** Aba **Atraso**: `229,61`, `10` dias, multa `2`, mora `1`. Mostra **R$ 234,97**.
+- [ ] **3.4** Aba **Atraso**: já vem `250,00`, `10` dias e juros ao dia `1` (das Configurações). Mostra
+      **R$ 275,00** (parcela R$ 250,00 + juros R$ 25,00). Com `100` dias mostra **R$ 500,00** (sem
+      teto); com juros ao dia `0,5` e `10` dias, **R$ 262,50**.
 - [ ] **3.5** Aba **Descobrir taxa**: `1.500,00`, parcela `344,00`, `6`. Mostra **9,96% ao mês**.
 
 ## 4. Dados de exemplo (opcional, mas ajuda a ver tudo funcionando)
@@ -77,13 +81,22 @@ número do passo e o que apareceu na tela.
 - [ ] **7.5** Em Configurações, mude o horário de cobrança para um intervalo que já passou hoje.
       Na Cobrança, os botões de WhatsApp ficam "Fora do horário". Volte o horário para 08:00 às 20:00.
 - [ ] **7.6** **Configurações → Mensagens de cobrança**: mude um texto e veja a prévia mudar.
-- [ ] **7.7** Se houver atrasados com endereço, **Visitas do dia** abre a rota no Google Maps.
+- [ ] **7.7** Se houver atrasados com endereço, **Visitas do dia** abre a rota no Google Maps. O valor de
+      cada cliente já vem com os juros de atraso, e embaixo aparece "parcela R$ … + juros R$ …".
+- [ ] **7.8** Juros de atraso (1% ao dia, sem multa): no empréstimo de teste, toque em **Mudar
+      vencimento**, ponha a 2ª parcela 10 dias atrás e salve. O empréstimo mostra "1 parcela atrasada,
+      somando R$ X com juros de atraso" e, na parcela, o valor com juros e a linha "parcela R$ … +
+      juros R$ … · 10 dias" (10% a mais). Na **Cobrança** ela aparece com o mesmo valor; a mensagem do
+      WhatsApp para atraso usa o valor com juros. Em **Receber**, o valor sugerido é o com juros,
+      com "Juros de atraso (1% ao dia × 10 dias)". Marque **Dispensar os juros de atraso**: o valor
+      volta ao da parcela. Volte o vencimento depois, se quiser.
 
 ## 8. Renegociação
 
 - [ ] **8.1** No empréstimo do passo 7, toque em **Renegociar**. O topo mostra **Quanto falta** (a
       soma do que falta das parcelas em aberto) e quantas parcelas faltam. Se houver parcela
-      atrasada, aparece a multa e a mora e a caixa **Somar multa e mora** (desmarcada).
+      atrasada, aparecem os juros de atraso (1% ao dia) e a caixa **Somar os juros de atraso**
+      (desmarcada).
 - [ ] **8.2** Em **Dinheiro novo para o cliente** digite `500,00`: o **Valor do novo contrato** passa a
       ser o que falta + R$ 500,00. Em **Parcelas novas**, digite um valor de parcela pequeno demais
       (ex.: `10,00`): aparece "A parcela não fecha…". Corrija para um valor que feche e veja a taxa.

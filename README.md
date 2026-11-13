@@ -46,6 +46,7 @@ termos atuais em vercel.com/pricing antes de escolher.
    6. [`20261112120000_cnpj_empresa.sql`](supabase/migrations/20261112120000_cnpj_empresa.sql)
    7. [`20261113120000_renegociacao_dinheiro_novo.sql`](supabase/migrations/20261113120000_renegociacao_dinheiro_novo.sql)
    8. [`20261114120000_alterar_vencimento.sql`](supabase/migrations/20261114120000_alterar_vencimento.sql)
+   9. [`20261115120000_juros_atraso_dia.sql`](supabase/migrations/20261115120000_juros_atraso_dia.sql)
 
    Para cada um: abra aqui no GitHub, copie todo o conteúdo, cole no SQL Editor (em uma aba nova,
    **New query**) e clique em **Run**. Deve aparecer "Success. No rows returned".
@@ -122,8 +123,8 @@ No **Painel**, o cartão **Vendido em (mês)** abre a tela **Vendas**: quanto vo
 (pela data em que o dinheiro foi entregue) e quanto de juros esses contratos geram. Mostra o total
 do período (6, 12 ou 24 meses), a comparação com o mês anterior, ticket médio, taxa média e um
 gráfico com o valor emprestado e os juros de cada mês. Toque num mês para ver os contratos dele,
-quanto já foi recebido e quanto rende no total. Os juros são os combinados no contrato, sem multa e
-mora. Empréstimos cancelados não contam como venda. Uma renegociação só conta o **dinheiro novo** que
+quanto já foi recebido e quanto rende no total. Os juros são os combinados no contrato, sem os juros
+de atraso. Empréstimos cancelados não contam como venda. Uma renegociação só conta o **dinheiro novo** que
 você mandou ao cliente, no mês da renegociação, com a parte dos juros do novo contrato que cabe a
 ele (juros × dinheiro novo ÷ valor do novo contrato); o saldo antigo já contou no mês do contrato
 original. Renegociação sem dinheiro novo fica de fora. No detalhe do mês ela aparece com a etiqueta
@@ -132,14 +133,15 @@ original. Renegociação sem dinheiro novo fica de fora. No detalhe do mês ela 
 ## Renegociar com dinheiro novo
 
 No empréstimo, toque em **Renegociar**. Exemplo: o cliente pegou R$ 1.000 em 6x de R$ 250 e já
-pagou 4. A tela mostra **Quanto falta: R$ 500,00** (2 parcelas, sem multa e mora). Em **Dinheiro
+pagou 4. A tela mostra **Quanto falta: R$ 500,00** (2 parcelas, sem juros de atraso). Em **Dinheiro
 novo para o cliente** digite `500,00`: o **valor do novo contrato** fica R$ 1.000,00. Em **Parcelas
 novas** digite o valor da parcela (`250,00`) e quantas (`6`); o app mostra a taxa que isso dá
 (12,98% ao mês). Se preferir, toque em **Prefiro informar a taxa**. **Revisar renegociação** mostra
 tudo antes de salvar, com **O cliente recebe agora: R$ 500,00** em destaque.
 
-- Se alguma parcela estiver atrasada, aparece a multa e a mora até a data da renegociação e a caixa
-  **Somar multa e mora ao saldo** (desmarcada: o que vale é o que falta das parcelas).
+- Se alguma parcela estiver atrasada, aparecem os juros de atraso (1% ao dia) até a data da
+  renegociação e a caixa **Somar os juros de atraso ao saldo** (desmarcada: o que vale é o que falta
+  das parcelas).
 - Dinheiro novo pode ser 0: aí é só trocar as parcelas.
 - A observação é opcional; o app escreve sozinho "Renegociação: saldo R$ 500,00 + R$ 500,00 novos".
 - O contrato antigo fica **Renegociado** (as parcelas em aberto são canceladas; os pagamentos ficam
@@ -162,9 +164,29 @@ Só a data muda: valor das parcelas, juros, saldo e pagamentos continuam iguais.
 - **O que muda** mostra cada parcela com a data antiga riscada e a nova; depois é só confirmar.
 - O app anota nas observações do empréstimo, por exemplo: "Vencimento alterado em 14/11/2026:
   parcelas 3 a 6 de 10/11/2026 para 20/11/2026. Cliente recebe o salário no dia 20."
-- Atraso, multa, mora, cobrança e o PDF do contrato passam a usar as datas novas. Cada parcela
+- Atraso, juros de atraso, cobrança e o PDF do contrato passam a usar as datas novas. Cada parcela
   alterada aparece no **Histórico de alterações** ("Mudou o vencimento da parcela 3").
 - A data não pode ser antes da liberação do dinheiro. Parcela paga ou cancelada não muda.
+
+## Atraso: 1% ao dia sobre a parcela
+
+Parcela paga depois do vencimento tem **juros de 1% ao dia** sobre o valor da parcela, em juros
+simples, **sem multa e sem teto**. Exemplo: parcela de R$ 250,00 com 10 dias de atraso vale
+**R$ 275,00**; com 100 dias, R$ 500,00. Se a parcela já foi paga em parte, os juros correm só sobre o
+que falta (pagou R$ 100,00 de R$ 250,00: 10 dias dão R$ 15,00 de juros sobre os R$ 150,00).
+
+- A taxa fica em **Configurações → Atraso e cobrança → Juros por dia de atraso (%)** (padrão 1, de 0
+  a 10). Vale para todos os contratos, inclusive os antigos.
+- Os juros são calculados na hora, pela data de hoje (ou a data do pagamento): o valor, os juros e a
+  amortização gravados em cada parcela nunca mudam.
+- Onde aparece valor atrasado, ele já vem com os juros, com o detalhe embaixo ("parcela R$ 250,00 +
+  juros R$ 25,00 · 10 dias"): empréstimo, Cobrança, Visitas, Receber, Quitar tudo, Renegociar,
+  Painel (valor atrasado, inadimplência e faixas de atraso), Clientes e Empréstimos.
+- Em **Receber**, o valor sugerido é o da parcela com os juros. Dá para **Dispensar os juros de
+  atraso** daquela vez. O recebimento paga primeiro os juros e o resto abate a parcela.
+- No banco, os juros recebidos ficam em `pagamentos.mora_centavos` e `multa_centavos` é 0. Pagamentos
+  antigos continuam com a multa e a mora cobradas na época.
+- A inadimplência do Painel é o atrasado com juros dividido pela carteira mais os juros de atraso.
 
 ## Cobrança
 
@@ -173,7 +195,9 @@ parcelas atrasadas (das mais antigas para as mais novas), as que vencem hoje e a
 Em cada uma:
 
 - **WhatsApp** abre a conversa com a mensagem pronta para aquele dia de atraso. Os textos ficam em
-  **Configurações → Mensagens de cobrança**. Fora do horário de cobrança (padrão: 8h às 20h) o botão
+  **Configurações → Mensagens de cobrança**. Numa parcela atrasada, `{{parcela.valor}}` e
+  `{{parcela.valor_atualizado}}` já vêm com os juros de atraso; `{{parcela.valor_original}}` é o valor
+  sem juros e `{{parcela.juros_atraso}}` só os juros. Fora do horário de cobrança (padrão: 8h às 20h) o botão
   fica bloqueado.
 - **Chave PIX** copia a sua chave para colar onde quiser.
 - **Contato** registra o que aconteceu (não atendeu, prometeu pagar em tal dia, negociando...). O
@@ -207,6 +231,14 @@ na tela do modelo. Quem tinha salvo o modelo padrão sem mudar nada passa a usar
 modelo **personalizado** não é reescrito: nele, `{{credor.nome}}` e `{{credor.documento}}` agora
 trazem o nome e o CNPJ da empresa. Para pegar o texto novo completo, toque em **Voltar para o
 modelo padrão** (isso apaga as suas alterações no texto).
+
+**Cláusula 4 (atraso).** O modelo padrão diz: "A parcela paga depois do vencimento terá juros de
+{{juros_atraso_dia}} ao dia sobre o valor da parcela em atraso, contados por dia de atraso." A
+variável `{{juros_atraso_dia}}` vem da taxa das Configurações (1% ao dia) e não há multa. Quem tinha o
+padrão antigo (multa de 2% e mora de 1% ao mês) sem mexer passa a usar o novo sozinho. Num modelo
+**personalizado** que ainda usa `{{multa}}` e `{{mora}}`, `{{multa}}` sai como **0%** e `{{mora}}`
+como os juros de atraso ao mês (1% ao dia = **30%** ao mês, que é a mesma conta por dia); a tela do
+modelo avisa e sugere trocar pela `{{juros_atraso_dia}}`.
 
 ## Dados dos clientes (LGPD)
 
@@ -297,16 +329,18 @@ npm run typecheck && npm run lint
 - `src/app/(app)/` telas que exigem login · `src/app/login/` entrada · `src/proxy.ts` renova a
   sessão e redireciona quem não está logado.
 - `src/lib/finance/` cálculos financeiros como funções puras (Price, SAC, juros simples e compostos,
-  taxa reversa, CET, multa e mora, quitação antecipada, datas de vencimento), com testes que
+  taxa reversa, CET, juros de atraso de 1% ao dia em `atraso.ts`, quitação antecipada, datas de
+  vencimento), com testes que
   conferem valores calculados à mão em `finance.test.ts`.
 - `src/lib/emprestimos.ts` monta o cronograma com datas e calcula situação das parcelas e
   pontualidade. O cronograma é sempre recalculado no servidor e gravado pela função
   `criar_emprestimo`, que confere a soma das amortizações e o limite de contratos numa transação.
-- `src/lib/pagamentos.ts` multa e mora na data, divisão do recebimento (encargos primeiro) e plano
-  de quitação. As funções `registrar_pagamento`, `estornar_pagamento`, `quitar_emprestimo` e
+- `src/lib/pagamentos.ts` juros de atraso na data, divisão do recebimento (juros primeiro) e plano
+  de quitação. Os juros de atraso vão para `mora_centavos` e `multa_centavos` é 0
+  (`colunasJurosAtraso`). As funções `registrar_pagamento`, `estornar_pagamento`, `quitar_emprestimo` e
   `renegociar_emprestimo` gravam tudo numa transação e recalculam parcela e empréstimo.
-- `src/lib/renegociacao.ts` saldo em aberto, multa e mora na data e o novo contrato (saldo +
-  encargos, se somados, + dinheiro novo), pela parcela ou pela taxa. `renegociar_emprestimo`
+- `src/lib/renegociacao.ts` saldo em aberto, juros de atraso na data e o novo contrato (saldo +
+  juros de atraso, se somados, + dinheiro novo), pela parcela ou pela taxa. `renegociar_emprestimo`
   recalcula o saldo no banco, confere o valor do novo contrato (erro `SALDO_MUDOU` se não bate) e
   grava `emprestimos.dinheiro_novo_centavos` (null quando não é renegociação).
 - `src/lib/importacao.ts` lê e confere a planilha de contratos em andamento (títulos com apelidos,
@@ -324,7 +358,7 @@ npm run typecheck && npm run lint
   anterior em `MODELOS_PADRAO_ANTERIORES`: quem salvou um padrão antigo sem mexer passa a usar o novo.
 - Arquivos ficam no bucket privado `documentos`; fotos são reduzidas no navegador antes do envio
   (limite de 4,5 MB da Vercel) e abertas por `/arquivos/...`, que gera um link assinado de 2 minutos.
-- `src/lib/painel.ts` indicadores do painel (carteira, atraso por faixa, recebido × previsto por
+- `src/lib/painel.ts` indicadores do painel (carteira, atraso com juros por faixa, recebido × previsto por
   mês, juros recebidos). `src/components/app/graficos.tsx` desenha os gráficos em HTML, com legenda,
   dica ao tocar e tabela com os números.
 - `/exportar/[tabela]` gera CSV para Excel (`;`, vírgula decimal, BOM) e `/exportar/backup` a

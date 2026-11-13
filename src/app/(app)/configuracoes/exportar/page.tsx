@@ -11,7 +11,7 @@ const PLANILHAS = [
   { tabela: "clientes", rotulo: "Clientes", descricao: "Nome, CPF, WhatsApp e endereço" },
   { tabela: "emprestimos", rotulo: "Empréstimos", descricao: "Valor, taxa, parcelas e situação" },
   { tabela: "parcelas", rotulo: "Parcelas", descricao: "Vencimentos, juros e o que já foi pago" },
-  { tabela: "pagamentos", rotulo: "Pagamentos", descricao: "Recebimentos, multa, mora e estornos" },
+  { tabela: "pagamentos", rotulo: "Pagamentos", descricao: "Recebimentos, juros de atraso e estornos" },
   { tabela: "contatos", rotulo: "Contatos de cobrança", descricao: "Ligações, mensagens e promessas" },
 ] as const;
 

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { jurosAtrasoDiario } from "@/lib/finance";
 import { hojeISO } from "@/lib/format";
 import { requireUser } from "@/lib/supabase/server";
 
@@ -21,7 +22,7 @@ export default async function ReceberPage({ params, searchParams }: PageProps<"/
       .eq("id", id)
       .order("numero", { referencedTable: "parcelas" })
       .maybeSingle(),
-    supabase.from("configuracoes").select("multa_percentual, mora_percentual_mes").maybeSingle(),
+    supabase.from("configuracoes").select("juros_atraso_dia_percentual").maybeSingle(),
   ]);
   if (!e) notFound();
 
@@ -48,8 +49,7 @@ export default async function ReceberPage({ params, searchParams }: PageProps<"/
           parcela={parcela}
           totalParcelas={e.parcelas.length}
           hoje={hojeISO()}
-          multa={Number(config?.multa_percentual ?? 2) / 100}
-          mora={Number(config?.mora_percentual_mes ?? 1) / 100}
+          jurosDiario={jurosAtrasoDiario(config?.juros_atraso_dia_percentual)}
         />
       )}
     </div>

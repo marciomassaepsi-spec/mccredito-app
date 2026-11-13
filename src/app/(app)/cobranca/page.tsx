@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { buttonVariants } from "@/components/ui/button";
 import { dentroDoHorario, escolherModelo, montarFila, preencherMensagem, variaveisDoItem } from "@/lib/cobranca";
+import { jurosAtrasoDiario } from "@/lib/finance";
 import { formatCentavos, formatDataExtenso, hojeISO, somarDiasISO } from "@/lib/format";
 import { exibirChavePix } from "@/lib/pix";
 import { requireUser } from "@/lib/supabase/server";
@@ -29,14 +30,13 @@ export default async function CobrancaPage() {
     supabase.from("modelos_mensagem").select("dias_relativos, titulo, texto, ativo"),
     supabase
       .from("configuracoes")
-      .select("nome_empresa, tipo_chave_pix, chave_pix, multa_percentual, mora_percentual_mes, cobranca_hora_inicio, cobranca_hora_fim")
+      .select("nome_empresa, tipo_chave_pix, chave_pix, juros_atraso_dia_percentual, cobranca_hora_inicio, cobranca_hora_fim")
       .maybeSingle(),
   ]);
 
-  const multa = Number(config?.multa_percentual ?? 2) / 100;
-  const mora = Number(config?.mora_percentual_mes ?? 1) / 100;
+  const jurosDiario = jurosAtrasoDiario(config?.juros_atraso_dia_percentual);
   const chavePix = config?.chave_pix ? exibirChavePix(config.tipo_chave_pix, config.chave_pix) : "";
-  const fila = montarFila(emprestimos ?? [], contatos ?? [], hoje, multa, mora);
+  const fila = montarFila(emprestimos ?? [], contatos ?? [], hoje, jurosDiario);
 
   const comMensagem = fila.map((item) => {
     const modelo = escolherModelo(modelos ?? [], item.diasRelativos);

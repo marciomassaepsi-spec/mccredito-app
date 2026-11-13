@@ -148,6 +148,7 @@ describe("situação das parcelas", () => {
         parcela(2, "2026-10-01"),
       ],
       hoje,
+      0.01,
     );
     expect(r).toMatchObject({
       pagas: 1,
@@ -155,7 +156,10 @@ describe("situação das parcelas", () => {
       atrasadas: 1,
       maiorAtrasoDias: 4,
       emAbertoCentavos: 20000,
-      atrasadoCentavos: 10000,
+      // 100,00 com 4 dias a 1% ao dia
+      atrasadoCentavos: 10400,
+      atrasadoSemJurosCentavos: 10000,
+      jurosAtrasoCentavos: 400,
     });
     expect(r.proxima?.numero).toBe(2);
   });

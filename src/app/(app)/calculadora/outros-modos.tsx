@@ -120,48 +120,32 @@ export function DescobrirTaxa() {
 }
 
 type AtrasoProps = {
-  multaPadrao: number;
-  moraPadrao: number;
-  multaLimite: number;
-  moraLimite: number;
+  /** Juros de atraso por dia das Configurações, em decimal (1% = 0.01) */
+  jurosDiaPadrao: number;
 };
 
-export function AtualizarAtraso({ multaPadrao, moraPadrao, multaLimite, moraLimite }: AtrasoProps) {
-  const [valor, setValor] = useState("229,61");
+export function AtualizarAtraso({ jurosDiaPadrao }: AtrasoProps) {
+  const [valor, setValor] = useState("250,00");
   const [dias, setDias] = useState("10");
-  const [multa, setMulta] = useState(percentualParaTexto(multaPadrao, 3));
-  const [mora, setMora] = useState(percentualParaTexto(moraPadrao, 3));
+  const [juros, setJuros] = useState(percentualParaTexto(jurosDiaPadrao, 3));
 
   const v = centavosPositivos(valor);
   const d = lerInteiro(dias, 0, 3650);
-  const m = parsePercentual(multa);
-  const j = parsePercentual(mora);
-  const r = v !== null && d !== null && m !== null && j !== null ? atualizarAtraso(v, d, m, j) : null;
+  const j = parsePercentual(juros);
+  const jValido = j !== null && j <= 0.1 ? j : null;
+  const r = v !== null && d !== null && jValido !== null ? atualizarAtraso(v, d, jValido) : null;
 
   return (
     <div className="grid gap-5">
       <p className="text-sm text-muted-foreground">
-        Multa cobrada uma vez sobre a parcela, mais juros de mora proporcionais aos dias de atraso.
-        Os padrões vêm das Configurações.
+        Juros por dia de atraso sobre o valor da parcela (ou o que falta dela), sem multa e sem teto. O padrão vem
+        das Configurações.
       </p>
       <div className="grid grid-cols-2 gap-3">
         <CampoNumero id="atraso-valor" rotulo="Valor da parcela" prefixo="R$" valor={valor} onChange={setValor} erro={v === null ? ERRO_VALOR : null} />
         <CampoNumero id="atraso-dias" rotulo="Dias de atraso" tipo="inteiro" valor={dias} onChange={setDias} erro={d === null ? "Ex.: 10" : null} />
-        <CampoNumero id="atraso-multa" rotulo="Multa" sufixo="%" valor={multa} onChange={setMulta} erro={m === null ? "Ex.: 2" : null} />
-        <CampoNumero id="atraso-mora" rotulo="Mora ao mês" sufixo="%" valor={mora} onChange={setMora} erro={j === null ? "Ex.: 1" : null} />
+        <CampoNumero id="atraso-juros" rotulo="Juros ao dia" sufixo="%" valor={juros} onChange={setJuros} erro={jValido === null ? "De 0 a 10, ex.: 1" : null} />
       </div>
-      {m !== null && m > multaLimite + 1e-9 && (
-        <Aviso>
-          Multa acima de {formatPercentual(multaLimite)}. O Código de Defesa do Consumidor limita a
-          multa por atraso a 2% em contratos com pessoa física.
-        </Aviso>
-      )}
-      {j !== null && j > moraLimite + 1e-9 && (
-        <Aviso>
-          Mora acima de {formatPercentual(moraLimite)} ao mês, o padrão usado nos contratos. Confirme
-          se o contrato do cliente prevê esse valor.
-        </Aviso>
-      )}
       {r ? (
         <CartaoResultado>
           <Destaque legenda={r.diasAtraso === 0 ? "Sem atraso" : `Valor atualizado com ${r.diasAtraso} ${r.diasAtraso === 1 ? "dia" : "dias"} de atraso`}>
@@ -170,13 +154,12 @@ export function AtualizarAtraso({ multaPadrao, moraPadrao, multaLimite, moraLimi
           <Linhas
             itens={[
               ["Parcela", formatCentavos(r.valorOriginalCentavos)],
-              ["Multa", formatCentavos(r.multaCentavos)],
-              ["Juros de mora", formatCentavos(r.moraCentavos)],
+              [`Juros (${formatPercentual(jValido ?? 0, 3)} × ${r.diasAtraso} ${r.diasAtraso === 1 ? "dia" : "dias"})`, formatCentavos(r.jurosCentavos)],
             ]}
           />
         </CartaoResultado>
       ) : (
-        <Vazio>Preencha os quatro campos.</Vazio>
+        <Vazio>Preencha os três campos.</Vazio>
       )}
     </div>
   );

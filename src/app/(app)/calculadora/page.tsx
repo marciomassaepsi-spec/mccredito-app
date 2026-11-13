@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { jurosAtrasoDiario } from "@/lib/finance";
 import { requireUser } from "@/lib/supabase/server";
 
 import { Calculadora, type ConfigCalculadora } from "./calculadora";
@@ -10,19 +11,13 @@ export default async function CalculadoraPage() {
   const { supabase } = await requireUser();
   const { data } = await supabase
     .from("configuracoes")
-    .select("nome_empresa, multa_percentual, mora_percentual_mes, multa_limite_aviso, mora_limite_aviso")
+    .select("nome_empresa, juros_atraso_dia_percentual")
     .maybeSingle();
-
-  // numeric chega como texto do Supabase; percentuais viram decimais (2 → 0.02)
-  const pct = (v: number | string | undefined, padrao: number) =>
-    v === undefined ? padrao : Number(v) / 100;
 
   const config: ConfigCalculadora = {
     nomeEmpresa: data?.nome_empresa || "MC Créditos",
-    multa: pct(data?.multa_percentual, 0.02),
-    mora: pct(data?.mora_percentual_mes, 0.01),
-    multaLimite: pct(data?.multa_limite_aviso, 0.02),
-    moraLimite: pct(data?.mora_limite_aviso, 0.01),
+    // Percentual vira decimal (1 → 0.01); sem configuração, 1% ao dia
+    jurosAtrasoDia: jurosAtrasoDiario(data?.juros_atraso_dia_percentual),
   };
 
   return (

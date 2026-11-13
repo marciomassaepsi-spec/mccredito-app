@@ -22,8 +22,11 @@ export default async function MensagensPage() {
     "cliente.nome": "Josiane Ferreira dos Santos",
     "parcela.numero": "3",
     "parcela.total": "6",
-    "parcela.valor": "R$ 344,31",
-    "parcela.valor_atualizado": "R$ 352,80",
+    // Exemplo de parcela atrasada: R$ 344,31 com 12 dias a 1% ao dia
+    "parcela.valor": "R$ 385,63",
+    "parcela.valor_atualizado": "R$ 385,63",
+    "parcela.valor_original": "R$ 344,31",
+    "parcela.juros_atraso": "R$ 41,32",
     "parcela.vencimento": "05/10/2026",
     "parcela.dias_atraso": "12",
     "empresa.nome": config?.nome_empresa ?? "MC Créditos",

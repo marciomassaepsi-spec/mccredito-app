@@ -6,7 +6,7 @@ import { CampoArquivo, useAcaoComArquivo } from "@/components/app/arquivo";
 import { AreaTexto, Campo, Entrada, MensagemForm, Selecao } from "@/components/app/form";
 import { Button } from "@/components/ui/button";
 import { formatCentavos, formatData } from "@/lib/format";
-import { planoQuitacao, type ParcelaAberta } from "@/lib/pagamentos";
+import { detalheAtraso, planoQuitacao, type ParcelaAberta } from "@/lib/pagamentos";
 
 import { quitarEmprestimo } from "../../pagamentos-actions";
 
@@ -15,16 +15,17 @@ type Props = {
   parcelas: ParcelaAberta[];
   taxaMensal: number;
   hoje: string;
-  multa: number;
-  mora: number;
+  /** Juros de atraso por dia, em decimal (1% = 0.01) */
+  jurosDiario: number;
 };
 
-export function QuitarForm({ emprestimoId, parcelas, taxaMensal, hoje, multa, mora }: Props) {
+export function QuitarForm({ emprestimoId, parcelas, taxaMensal, hoje, jurosDiario }: Props) {
   const { estado, aoEnviar, enviando } = useAcaoComArquivo(quitarEmprestimo);
   const [data, setData] = useState(hoje);
   const [dispensar, setDispensar] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
-  const plano = planoQuitacao(parcelas, taxaMensal, data || hoje, multa, mora, dispensar);
+  const plano = planoQuitacao(parcelas, taxaMensal, data || hoje, jurosDiario, dispensar);
+  const atrasadas = plano.itens.filter((i) => i.diasAtraso > 0).length;
   const e = estado.erros;
 
   return (
@@ -39,10 +40,12 @@ export function QuitarForm({ emprestimoId, parcelas, taxaMensal, hoje, multa, mo
             <dt className="text-white/80">Parcelas em aberto ({parcelas.length})</dt>
             <dd className="font-bold text-[#f0d45a]">{formatCentavos(plano.emAbertoCentavos)}</dd>
           </div>
-          {plano.encargosCentavos > 0 && (
-            <div className="flex justify-between">
-              <dt className="text-white/80">Multa e mora das atrasadas</dt>
-              <dd className="font-bold text-[#f0d45a]">+ {formatCentavos(plano.encargosCentavos)}</dd>
+          {plano.jurosAtrasoCentavos > 0 && (
+            <div className="flex justify-between gap-3">
+              <dt className="text-white/80">
+                Juros de atraso ({atrasadas} {atrasadas === 1 ? "atrasada" : "atrasadas"})
+              </dt>
+              <dd className="font-bold whitespace-nowrap text-[#f0d45a]">+ {formatCentavos(plano.jurosAtrasoCentavos)}</dd>
             </div>
           )}
           <div className="flex justify-between">
@@ -66,10 +69,10 @@ export function QuitarForm({ emprestimoId, parcelas, taxaMensal, hoje, multa, mo
         </Campo>
       </div>
 
-      {plano.encargosCentavos > 0 || dispensar ? (
+      {plano.jurosAtrasoCentavos > 0 || dispensar ? (
         <label className="flex items-start gap-3 rounded-xl border bg-card p-3">
           <input type="checkbox" name="dispensar" checked={dispensar} onChange={(ev) => setDispensar(ev.target.checked)} className="mt-1 size-5 accent-primary" />
-          <span className="text-sm">Dispensar multa e mora das parcelas atrasadas</span>
+          <span className="text-sm">Dispensar os juros de atraso das parcelas atrasadas</span>
         </label>
       ) : null}
 
@@ -82,9 +85,11 @@ export function QuitarForm({ emprestimoId, parcelas, taxaMensal, hoje, multa, mo
                 {i.numero}ª · {formatData(i.vencimento)}
               </span>
               <span className="text-right">
-                <b>{formatCentavos(i.valor + i.multa + i.mora - i.desconto)}</b>
+                <b>{formatCentavos(i.valor + i.juros - i.desconto)}</b>
                 {i.desconto > 0 && <span className="block text-xs text-primary">desconto {formatCentavos(i.desconto)}</span>}
-                {i.multa + i.mora > 0 && <span className="block text-xs text-late">encargos {formatCentavos(i.multa + i.mora)}</span>}
+                {i.juros > 0 && (
+                  <span className="block text-xs text-late">{detalheAtraso({ valorCentavos: i.valor, jurosCentavos: i.juros, diasAtraso: i.diasAtraso })}</span>
+                )}
               </span>
             </li>
           ))}

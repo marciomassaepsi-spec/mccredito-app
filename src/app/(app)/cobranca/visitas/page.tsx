@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Selo } from "@/components/app/selo";
 import { buttonVariants } from "@/components/ui/button";
 import { montarFila } from "@/lib/cobranca";
+import { jurosAtrasoDiario } from "@/lib/finance";
 import { formatCentavos, formatTelefone, hojeISO } from "@/lib/format";
 import { requireUser } from "@/lib/supabase/server";
 
@@ -29,13 +30,16 @@ export default async function VisitasPage() {
       .from("emprestimos")
       .select("id, clientes(id, nome, whatsapp, endereco), parcelas(id, numero, vencimento, valor_centavos, pago_centavos, status, quitada_em)")
       .eq("status", "ativo"),
-    supabase.from("configuracoes").select("multa_percentual, mora_percentual_mes").maybeSingle(),
+    supabase.from("configuracoes").select("juros_atraso_dia_percentual").maybeSingle(),
   ]);
 
-  const fila = montarFila(emprestimos ?? [], [], hoje, Number(config?.multa_percentual ?? 2) / 100, Number(config?.mora_percentual_mes ?? 1) / 100, 0);
+  const fila = montarFila(emprestimos ?? [], [], hoje, jurosAtrasoDiario(config?.juros_atraso_dia_percentual), 0);
 
   // Uma visita por cliente, somando as parcelas atrasadas dele
-  const porCliente = new Map<string, { nome: string; endereco: string; whatsapp: string; devido: number; maiorAtraso: number; parcelas: number }>();
+  const porCliente = new Map<
+    string,
+    { nome: string; endereco: string; whatsapp: string; devido: number; emAberto: number; juros: number; maiorAtraso: number; parcelas: number }
+  >();
   for (const i of fila) {
     if (i.grupo !== "atrasada") continue;
     const atual = porCliente.get(i.cliente.id);
@@ -44,6 +48,8 @@ export default async function VisitasPage() {
       endereco: i.cliente.endereco,
       whatsapp: i.cliente.whatsapp,
       devido: (atual?.devido ?? 0) + i.devidoCentavos,
+      emAberto: (atual?.emAberto ?? 0) + i.emAbertoCentavos,
+      juros: (atual?.juros ?? 0) + i.jurosCentavos,
       maiorAtraso: Math.max(atual?.maiorAtraso ?? 0, i.diasRelativos),
       parcelas: (atual?.parcelas ?? 0) + 1,
     });
@@ -58,7 +64,7 @@ export default async function VisitasPage() {
           ← Cobrança
         </Link>
         <h1 className="text-3xl font-black italic text-brand-deep">Visitas do dia</h1>
-        <p className="text-muted-foreground">Clientes com parcela atrasada, do maior valor para o menor.</p>
+        <p className="text-muted-foreground">Clientes com parcela atrasada, do maior valor para o menor. Valores com os juros de atraso até hoje.</p>
       </section>
 
       {comEndereco.length > 1 && (
@@ -81,6 +87,9 @@ export default async function VisitasPage() {
               </Link>
               <span className="num shrink-0 font-heading text-lg font-black">{formatCentavos(v.devido)}</span>
             </div>
+            <p className="num -mt-1 text-xs text-muted-foreground">
+              {v.parcelas === 1 ? "parcela" : "parcelas"} {formatCentavos(v.emAberto)} + juros {formatCentavos(v.juros)}
+            </p>
             <div className="flex flex-wrap gap-2">
               <Selo tom="atraso">{v.maiorAtraso} dias de atraso</Selo>
               {v.parcelas > 1 && <Selo tom="neutro">{v.parcelas} parcelas</Selo>}

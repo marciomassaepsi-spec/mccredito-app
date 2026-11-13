@@ -36,9 +36,9 @@ Os pagamentos serão feitos por PIX para a chave {{pix}}, em nome de {{pix.titul
 
 ## Cláusula 4ª – Do atraso
 
-A parcela paga depois do vencimento terá multa de {{multa}} sobre o valor em atraso e juros de mora de {{mora}} ao mês, calculados por dia de atraso.
+A parcela paga depois do vencimento terá juros de {{juros_atraso_dia}} ao dia sobre o valor da parcela em atraso, contados por dia de atraso.
 
-O atraso de qualquer parcela por mais de 30 dias permite ao CREDOR considerar vencidas as parcelas seguintes e cobrar de uma vez o saldo devedor, com os encargos acima.
+O atraso de qualquer parcela por mais de 30 dias permite ao CREDOR considerar vencidas as parcelas seguintes e cobrar de uma vez o saldo devedor, com os juros de atraso acima.
 
 ## Cláusula 5ª – Da quitação antecipada
 
@@ -65,6 +65,55 @@ E, por estarem de acordo, as partes assinam este contrato em duas vias de igual 
  * Nunca edite estes textos; ao mudar o MODELO_PADRAO, acrescente o anterior aqui.
  */
 const MODELOS_PADRAO_ANTERIORES = [
+  // Até novembro de 2026: cláusula 4 com multa de 2% e juros de mora de 1% ao mês
+  `# CONTRATO DE EMPRÉSTIMO PESSOAL
+
+**CREDOR:** {{empresa.qualificacao}}, doravante chamada CREDOR.
+
+**DEVEDOR:** {{cliente.nome}}, inscrito no CPF sob o nº {{cliente.cpf}}, residente em {{cliente.endereco}}, doravante chamado DEVEDOR.
+
+As partes acima celebram este contrato de empréstimo de dinheiro (mútuo), que se rege pelas cláusulas a seguir.
+
+## Cláusula 1ª – Do valor
+
+O CREDOR empresta ao DEVEDOR a quantia de **{{valor}}** ({{valor_extenso}}), {{entrega}}.
+
+{{renegociacao}}
+
+## Cláusula 2ª – Dos juros e das parcelas
+
+Sobre o valor emprestado incidem juros de {{taxa}} ao mês, calculados pelo sistema {{sistema}}. O DEVEDOR pagará {{parcelas}} parcelas {{periodicidade}}, que somam **{{total}}** ({{total_extenso}}), com custo efetivo total (CET) de {{cet}} ao mês, nos valores e datas abaixo:
+
+{{tabela_parcelas}}
+
+## Cláusula 3ª – Da forma de pagamento
+
+Os pagamentos serão feitos por PIX para a chave {{pix}}, em nome de {{pix.titular}}, ou em dinheiro mediante recibo.
+
+## Cláusula 4ª – Do atraso
+
+A parcela paga depois do vencimento terá multa de {{multa}} sobre o valor em atraso e juros de mora de {{mora}} ao mês, calculados por dia de atraso.
+
+O atraso de qualquer parcela por mais de 30 dias permite ao CREDOR considerar vencidas as parcelas seguintes e cobrar de uma vez o saldo devedor, com os encargos acima.
+
+## Cláusula 5ª – Da quitação antecipada
+
+O DEVEDOR pode quitar o saldo a qualquer tempo, total ou parcialmente, com redução proporcional dos juros das parcelas que ainda não venceram (art. 52, § 2º, do Código de Defesa do Consumidor).
+
+## Cláusula 6ª – Dos dados pessoais
+
+O DEVEDOR autoriza o uso dos dados informados neste contrato apenas para a sua execução e cobrança, nos termos da Lei nº 13.709/2018 (LGPD).
+
+## Cláusula 7ª – Do foro
+
+Fica eleito o foro da comarca de {{credor.cidade}} para resolver qualquer questão deste contrato.
+
+E, por estarem de acordo, as partes assinam este contrato em duas vias de igual teor, junto com duas testemunhas.
+
+{{credor.cidade}}, {{data_extenso}}.
+
+{{assinaturas}}
+`,
   // Até novembro de 2026: a cláusula 1 sempre dizia que o valor todo foi entregue (sem renegociação)
   `# CONTRATO DE EMPRÉSTIMO PESSOAL
 
@@ -199,15 +248,15 @@ export type DadosContrato = {
     sistema: Sistema;
     periodicidade: Periodicidade;
     liberadoEm: string;
-    multaPercentual: number;
-    moraPercentual: number;
+    /** Juros por dia de atraso, em % (1 = 1% ao dia) */
+    jurosAtrasoDiaPercentual: number;
   };
   parcelas: Array<{ numero: number; vencimento: string; valor_centavos: number }>;
   /** Só quando o empréstimo veio de uma renegociação */
   renegociacao?: {
     /** Data do contrato anterior (liberação) "aaaa-mm-dd" */
     contratoAnteriorEm: string;
-    /** Saldo do contrato anterior que passou para este (com multa e mora, se somadas) */
+    /** Saldo do contrato anterior que passou para este (com juros de atraso, se somados) */
     saldoAnteriorCentavos: number;
     /** Dinheiro entregue ao cliente na renegociação */
     dinheiroNovoCentavos: number;
@@ -305,8 +354,9 @@ export const VARIAVEIS: Array<[string, string]> = [
   ["cet", "Custo efetivo total ao mês"],
   ["pix", "Sua chave PIX"],
   ["pix.titular", "Nome do titular da chave PIX"],
-  ["multa", "Multa por atraso"],
-  ["mora", "Juros de mora ao mês"],
+  ["juros_atraso_dia", "Juros por dia de atraso (das Configurações), ex.: 1%"],
+  ["multa", "Modelos antigos: multa por atraso, sempre 0% (não há multa)"],
+  ["mora", "Modelos antigos: juros de atraso ao mês, a taxa diária × 30 (1% ao dia = 30%)"],
   ["data_extenso", "Data de hoje por extenso"],
   ["tabela_parcelas", "Tabela com todas as parcelas (sozinha na linha)"],
   ["assinaturas", "Linhas de assinatura e testemunhas (sozinha na linha)"],
@@ -346,8 +396,11 @@ export function montarVariaveis(d: DadosContrato): Record<string, string> {
     cet: cet === null ? "-" : formatPercentual(cet),
     pix: d.empresa.chavePix ? exibirChavePix(d.empresa.tipoChavePix, d.empresa.chavePix) : "[preencha nas Configurações]",
     "pix.titular": d.empresa.nomeRecebedorPix.trim() || d.empresa.razaoSocial.trim() || d.empresa.nome,
-    multa: formatPercentual(d.emprestimo.multaPercentual / 100),
-    mora: formatPercentual(d.emprestimo.moraPercentual / 100),
+    juros_atraso_dia: formatPercentual(d.emprestimo.jurosAtrasoDiaPercentual / 100, 3),
+    // Modelos personalizados antigos ainda podem usar {{multa}} e {{mora}}: não há
+    // multa, e a mora ao mês "calculada por dia de atraso" equivale à taxa diária × 30
+    multa: formatPercentual(0),
+    mora: formatPercentual((d.emprestimo.jurosAtrasoDiaPercentual * 30) / 100, 3),
     data_extenso: dataPorExtenso(d.hoje),
   };
 }

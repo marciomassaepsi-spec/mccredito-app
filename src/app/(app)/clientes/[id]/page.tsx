@@ -8,6 +8,7 @@ import { Selo } from "@/components/app/selo";
 import { buttonVariants } from "@/components/ui/button";
 import { NOME_RESULTADO, NOME_TIPO_CONTATO } from "@/lib/cobranca";
 import { calcularPontualidade, NOME_SISTEMA, resumirParcelas } from "@/lib/emprestimos";
+import { jurosAtrasoDiario } from "@/lib/finance";
 import { formatCentavos, formatCPF, formatData, formatPercentual, formatTelefone, hojeISO, linkWhatsApp } from "@/lib/format";
 import { requireUser } from "@/lib/supabase/server";
 
@@ -21,7 +22,10 @@ export default async function ClientePage({ params, searchParams }: PageProps<"/
   const { id } = await params;
   const { ok } = await searchParams;
   const { supabase } = await requireUser();
-  const { data: perfil } = await supabase.from("perfis").select("papel").maybeSingle();
+  const [{ data: perfil }, { data: config }] = await Promise.all([
+    supabase.from("perfis").select("papel").maybeSingle(),
+    supabase.from("configuracoes").select("juros_atraso_dia_percentual").maybeSingle(),
+  ]);
   const { data: c } = await supabase
     .from("clientes")
     .select(
@@ -36,7 +40,8 @@ export default async function ClientePage({ params, searchParams }: PageProps<"/
 
   const hoje = hojeISO();
   const ativos = c.emprestimos.filter((e) => e.status === "ativo");
-  const resumoAtivos = resumirParcelas(ativos.flatMap((e) => e.parcelas), hoje);
+  const jurosDiario = jurosAtrasoDiario(config?.juros_atraso_dia_percentual);
+  const resumoAtivos = resumirParcelas(ativos.flatMap((e) => e.parcelas), hoje, jurosDiario);
   const pontualidade = calcularPontualidade(c.emprestimos.flatMap((e) => e.parcelas), hoje);
   const whatsapp = c.whatsapp ? linkWhatsApp(c.whatsapp) : null;
 
@@ -70,7 +75,10 @@ export default async function ClientePage({ params, searchParams }: PageProps<"/
           <p className="text-sm font-bold text-muted-foreground">Em aberto</p>
           <p className="num font-heading text-2xl font-black">{formatCentavos(resumoAtivos.emAbertoCentavos)}</p>
           {resumoAtivos.atrasadoCentavos > 0 && (
-            <p className="num text-sm font-bold text-late">{formatCentavos(resumoAtivos.atrasadoCentavos)} atrasado</p>
+            <>
+              <p className="num text-sm font-bold text-late">{formatCentavos(resumoAtivos.atrasadoCentavos)} atrasado</p>
+              <p className="num text-xs text-late">com {formatCentavos(resumoAtivos.jurosAtrasoCentavos)} de juros de atraso</p>
+            </>
           )}
         </div>
         <div className="rounded-2xl border bg-card p-4">
@@ -167,7 +175,7 @@ export default async function ClientePage({ params, searchParams }: PageProps<"/
         )}
         <ul className="grid gap-2">
           {c.emprestimos.map((e) => {
-            const r = resumirParcelas(e.parcelas, hoje);
+            const r = resumirParcelas(e.parcelas, hoje, jurosDiario);
             return (
               <li key={e.id}>
                 <Link
@@ -188,6 +196,11 @@ export default async function ClientePage({ params, searchParams }: PageProps<"/
                     {formatData(e.liberado_em)} · {NOME_SISTEMA[e.sistema]} · {formatPercentual(Number(e.taxa_percentual) / 100)} a.m. ·{" "}
                     {r.pagas} de {r.total} pagas
                   </p>
+                  {e.status === "ativo" && r.atrasadas > 0 && (
+                    <p className="num text-sm font-semibold text-late">
+                      {formatCentavos(r.atrasadoCentavos)} atrasado, com {formatCentavos(r.jurosAtrasoCentavos)} de juros
+                    </p>
+                  )}
                 </Link>
               </li>
             );

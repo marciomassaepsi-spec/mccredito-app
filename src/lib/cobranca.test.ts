@@ -6,6 +6,7 @@ import {
   montarFila,
   preencherMensagem,
   primeiroNome,
+  VARIAVEIS_MENSAGEM,
   variaveisDoItem,
   type Contato,
   type EmprestimoCobranca,
@@ -108,7 +109,7 @@ describe("fila de cobrança", () => {
     { cliente_id: "c1", parcela_id: "a2", tipo: "ligacao", resultado: "prometeu_pagar", promessa_para: "2026-10-05", observacoes: "", criado_em: "2026-10-03T12:00:00Z" },
   ];
 
-  const fila = montarFila(emprestimos, contatos, hoje, 0.02, 0.01);
+  const fila = montarFila(emprestimos, contatos, hoje, 0.01);
 
   it("ordena: atrasadas (mais dias primeiro), hoje, próximos 7 dias", () => {
     expect(fila.map((i) => [i.parcela.id, i.grupo])).toEqual([
@@ -126,12 +127,25 @@ describe("fila de cobrança", () => {
     expect(ids).not.toContain("b3");
   });
 
-  it("calcula o devido com multa e mora sobre o que falta", () => {
+  it("calcula o devido com juros de 1% ao dia sobre o que falta, sem teto", () => {
     const carla = fila[0];
     expect(carla.emAbertoCentavos).toBe(12961);
     expect(carla.diasRelativos).toBe(60);
-    // multa 2% = 259; mora 1% a.m. × 60 dias = 259
-    expect(carla.devidoCentavos).toBe(12961 + 259 + 259);
+    // 129,61 × 1% × 60 dias = 77,766 → 77,77
+    expect(carla.jurosCentavos).toBe(7777);
+    expect(carla.devidoCentavos).toBe(12961 + 7777);
+  });
+
+  it("com a taxa configurada em 0,5% ao dia", () => {
+    const meio = montarFila(emprestimos, contatos, hoje, 0.005);
+    expect(meio[0].jurosCentavos).toBe(3888); // 129,61 × 0,5% × 60 = 38,883
+  });
+
+  it("parcela que vence hoje não tem juros", () => {
+    const bruno = fila[2];
+    expect(bruno.grupo).toBe("hoje");
+    expect(bruno.jurosCentavos).toBe(0);
+    expect(bruno.devidoCentavos).toBe(22961);
   });
 
   it("traz o último contato e a promessa que vence hoje", () => {
@@ -147,11 +161,26 @@ describe("fila de cobrança", () => {
       "cliente.primeiro_nome": "Ana",
       "parcela.numero": "2",
       "parcela.total": "3",
-      "parcela.valor": "R$ 229,61",
+      // atrasada: o valor já vem com os juros (229,61 + 22,96 de 10 dias a 1%)
+      "parcela.valor": "R$ 252,57",
+      "parcela.valor_atualizado": "R$ 252,57",
+      "parcela.valor_original": "R$ 229,61",
+      "parcela.juros_atraso": "R$ 22,96",
       "parcela.vencimento": "25/09/2026",
       "parcela.dias_atraso": "10",
       "empresa.pix": "(71) 91234-5678",
     });
-    expect(v["parcela.valor_atualizado"]).toBe("R$ 234,97");
+  });
+
+  it("toda variável da mensagem documentada existe", () => {
+    const v = variaveisDoItem(fila[1], { nome: "MC Créditos", pix: "" });
+    for (const [nome] of VARIAVEIS_MENSAGEM) expect(v, nome).toHaveProperty([nome]);
+  });
+
+  it("parcela em dia: valor e valor atualizado são o da parcela", () => {
+    const v = variaveisDoItem(fila[2], { nome: "MC Créditos", pix: "" });
+    expect(v["parcela.valor"]).toBe("R$ 229,61");
+    expect(v["parcela.valor_atualizado"]).toBe("R$ 229,61");
+    expect(v["parcela.juros_atraso"]).toBe("R$ 0,00");
   });
 });

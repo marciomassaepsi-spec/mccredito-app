@@ -59,16 +59,20 @@ describe("indicadores do painel", () => {
       { pago_em: "2026-09-10", valor_centavos: 15000, multa_centavos: 0, mora_centavos: 0, desconto_centavos: 0, parcelas: { valor_centavos: 15000, juros_centavos: 3000 } },
     ],
     valoresAtivos: [100000, 200000, 150000],
+    jurosDiario: 0.01,
   });
 
-  it("carteira, atraso e inadimplência", () => {
+  it("carteira, atraso com juros de 1% ao dia e inadimplência", () => {
     expect(ind.carteiraCentavos).toBe(10000 + 6000 + 5000 + 20000 + 20000);
-    expect(ind.atrasadoCentavos).toBe(10000 + 6000 + 5000);
-    expect(ind.inadimplencia).toBeCloseTo(21000 / 61000, 10);
+    // 100,00 × 4 dias = 4,00; 60,00 (o que falta) × 46 dias = 27,60; 50,00 × 126 dias = 63,00 (sem teto)
+    expect(ind.jurosAtrasoCentavos).toBe(400 + 2760 + 6300);
+    expect(ind.atrasadoCentavos).toBe(10400 + 8760 + 11300);
+    // atrasado com juros ÷ (carteira + juros de atraso)
+    expect(ind.inadimplencia).toBeCloseTo(30460 / 70460, 10);
   });
 
-  it("faixas de atraso", () => {
-    expect(ind.faixas.map((f) => f.centavos)).toEqual([10000, 0, 6000, 0, 5000]);
+  it("faixas de atraso já com os juros", () => {
+    expect(ind.faixas.map((f) => f.centavos)).toEqual([10400, 0, 8760, 0, 11300]);
     expect(ind.faixas.map((f) => f.parcelas)).toEqual([1, 0, 1, 0, 1]);
   });
 
@@ -89,7 +93,7 @@ describe("indicadores do painel", () => {
   });
 
   it("sem dados não divide por zero", () => {
-    const vazio = calcularIndicadores({ hoje, abertas: [], previstas: [], pagamentos: [], valoresAtivos: [] });
+    const vazio = calcularIndicadores({ hoje, abertas: [], previstas: [], pagamentos: [], valoresAtivos: [], jurosDiario: 0.01 });
     expect(vazio.inadimplencia).toBe(0);
     expect(vazio.ticketMedioCentavos).toBe(0);
   });

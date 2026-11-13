@@ -15,9 +15,8 @@ type Props = {
   emprestimoId: string;
   /** Parcelas em aberto do contrato atual */
   parcelas: ParcelaDoContrato[];
-  /** Multa e mora da configuração, em decimal */
-  multa: number;
-  mora: number;
+  /** Juros de atraso por dia da configuração, em decimal (1% = 0.01) */
+  jurosDiario: number;
   hoje: string;
   liberadoAntigo: string;
   inicial: { qtd: string; parcela: string; periodicidade: Periodicidade };
@@ -32,7 +31,7 @@ function Linha({ rotulo, valor, forte }: { rotulo: string; valor: string; forte?
   );
 }
 
-export function RenegociarForm({ emprestimoId, parcelas, multa, mora, hoje, liberadoAntigo, inicial }: Props) {
+export function RenegociarForm({ emprestimoId, parcelas, jurosDiario, hoje, liberadoAntigo, inicial }: Props) {
   const { estado, aoEnviar, enviando } = useAcaoSemReset(renegociarEmprestimo);
   const [revisando, setRevisando] = useState(false);
   const [tentou, setTentou] = useState(false);
@@ -51,8 +50,8 @@ export function RenegociarForm({ emprestimoId, parcelas, multa, mora, hoje, libe
   const [observacao, setObservacao] = useState("");
 
   const dataValida = /^\d{4}-\d{2}-\d{2}$/.test(data) && data >= liberadoAntigo && data <= hoje;
-  // Quanto falta é sempre o mesmo; multa e mora dependem da data da renegociação
-  const saldo = useMemo(() => saldoParaRenegociar(parcelas, dataValida ? data : hoje, multa, mora), [parcelas, data, dataValida, hoje, multa, mora]);
+  // Quanto falta é sempre o mesmo; os juros de atraso dependem da data da renegociação
+  const saldo = useMemo(() => saldoParaRenegociar(parcelas, dataValida ? data : hoje, jurosDiario), [parcelas, data, dataValida, hoje, jurosDiario]);
   const somarEncargos = somar && saldo.encargosCentavos > 0;
 
   const novo = dinheiroNovo.trim() === "" ? 0 : parseReaisParaCentavos(dinheiroNovo);
@@ -116,13 +115,14 @@ export function RenegociarForm({ emprestimoId, parcelas, multa, mora, hoje, libe
           <p className="text-sm font-bold text-white/75">Quanto falta deste contrato</p>
           <p className="num font-heading text-[clamp(2rem,10vw,2.75rem)] leading-tight font-black">{formatCentavos(saldo.saldoCentavos)}</p>
           <p className="num text-sm text-white/80">
-            {saldo.parcelasEmAberto} {saldo.parcelasEmAberto === 1 ? "parcela em aberto" : "parcelas em aberto"}, sem multa e mora
+            {saldo.parcelasEmAberto} {saldo.parcelasEmAberto === 1 ? "parcela em aberto" : "parcelas em aberto"}, sem juros de atraso
           </p>
           {saldo.encargosCentavos > 0 && (
             <div className="grid gap-2 border-t border-white/15 pt-3">
               <p className="num text-sm">
-                {saldo.atrasadas} {saldo.atrasadas === 1 ? "parcela atrasada" : "parcelas atrasadas"} em {formatData(data)}: multa{" "}
-                {formatCentavos(saldo.multaCentavos)} + mora {formatCentavos(saldo.moraCentavos)}
+                {saldo.atrasadas} {saldo.atrasadas === 1 ? "parcela atrasada" : "parcelas atrasadas"} em {formatData(data)}: juros de atraso{" "}
+                {formatCentavos(saldo.encargosCentavos)} ({formatPercentual(jurosDiario, 3)} ao dia). Com eles, o saldo fica em{" "}
+                {formatCentavos(saldo.saldoCentavos + saldo.encargosCentavos)}.
               </p>
               <label className="flex items-start gap-3 font-semibold">
                 <input
@@ -132,7 +132,7 @@ export function RenegociarForm({ emprestimoId, parcelas, multa, mora, hoje, libe
                   checked={somar}
                   onChange={(ev) => setSomar(ev.target.checked)}
                 />
-                <span>Somar multa e mora ({formatCentavos(saldo.encargosCentavos)}) ao saldo</span>
+                <span>Somar os juros de atraso ({formatCentavos(saldo.encargosCentavos)}) ao saldo</span>
               </label>
             </div>
           )}
@@ -155,7 +155,7 @@ export function RenegociarForm({ emprestimoId, parcelas, multa, mora, hoje, libe
           <p className="num font-heading text-2xl font-black">{formatCentavos(valorNovo)}</p>
           <p className="num text-sm text-muted-foreground">
             saldo {formatCentavos(saldo.saldoCentavos)}
-            {somarEncargos && ` + multa e mora ${formatCentavos(saldo.encargosCentavos)}`} + dinheiro novo {formatCentavos(novo ?? 0)}
+            {somarEncargos && ` + juros de atraso ${formatCentavos(saldo.encargosCentavos)}`} + dinheiro novo {formatCentavos(novo ?? 0)}
           </p>
         </div>
 
@@ -278,7 +278,7 @@ export function RenegociarForm({ emprestimoId, parcelas, multa, mora, hoje, libe
                 </div>
                 <dl className="num grid gap-1.5 border-t border-white/15 pt-3 text-sm">
                   <Linha rotulo="Quanto faltava" valor={formatCentavos(plano.saldoCentavos)} />
-                  {plano.encargosCentavos > 0 && <Linha rotulo="Multa e mora somadas" valor={formatCentavos(plano.encargosCentavos)} />}
+                  {plano.encargosCentavos > 0 && <Linha rotulo="Juros de atraso somados" valor={formatCentavos(plano.encargosCentavos)} />}
                   <Linha rotulo="Dinheiro novo" valor={formatCentavos(plano.dinheiroNovoCentavos)} />
                   <Linha rotulo="Valor do novo contrato" valor={formatCentavos(plano.valorCentavos)} forte />
                   <Linha rotulo="Parcelas" valor={`${resumoParcelas(plano)} · ${NOME_PERIODICIDADE[periodicidade].toLowerCase()}`} />

@@ -23,7 +23,7 @@ export async function carregarDadosContrato(
     supabase
       .from("configuracoes")
       .select(
-        "nome_empresa, cnpj_empresa, razao_social, documento_empresa, cidade, tipo_chave_pix, chave_pix, nome_recebedor_pix, multa_percentual, mora_percentual_mes, modelo_contrato",
+        "nome_empresa, cnpj_empresa, razao_social, documento_empresa, cidade, tipo_chave_pix, chave_pix, nome_recebedor_pix, juros_atraso_dia_percentual, modelo_contrato",
       )
       .maybeSingle(),
   ]);
@@ -50,8 +50,7 @@ export async function carregarDadosContrato(
         sistema: e.sistema,
         periodicidade: e.periodicidade,
         liberadoEm: e.liberado_em,
-        multaPercentual: Number(config.multa_percentual),
-        moraPercentual: Number(config.mora_percentual_mes),
+        jurosAtrasoDiaPercentual: Number(config.juros_atraso_dia_percentual),
       },
       parcelas: e.parcelas,
       renegociacao,

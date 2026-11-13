@@ -151,7 +151,7 @@ export function GraficoAtraso({ faixas }: { faixas: Faixa[] }) {
       <figcaption>
         <h2 className="text-lg font-extrabold">Atrasos por faixa de dias</h2>
         <p className="num text-sm text-muted-foreground">
-          {total > 0 ? `${formatCentavos(total)} em atraso, sem multa e mora` : "Nenhuma parcela atrasada."}
+          {total > 0 ? `${formatCentavos(total)} em atraso, já com os juros de atraso` : "Nenhuma parcela atrasada."}
         </p>
       </figcaption>
       {total > 0 && (

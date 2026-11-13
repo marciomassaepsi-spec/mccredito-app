@@ -10,6 +10,7 @@ import { Selo } from "@/components/app/selo";
 import { buttonVariants } from "@/components/ui/button";
 import { NOME_RESULTADO, NOME_TIPO_CONTATO, type ItemCobranca } from "@/lib/cobranca";
 import { formatCentavos, formatData, linkWhatsApp } from "@/lib/format";
+import { detalheAtraso } from "@/lib/pagamentos";
 import { cn } from "cn";
 
 import { registrarContato } from "./actions";
@@ -64,11 +65,18 @@ export function CartaoCobranca({ item, mensagem, chavePix, noHorario, horario, h
         </div>
         <div className="shrink-0 text-right">
           <p className="num font-heading text-xl font-black whitespace-nowrap">{formatCentavos(item.devidoCentavos)}</p>
-          {item.devidoCentavos > item.emAbertoCentavos && (
-            <p className="num text-xs whitespace-nowrap text-muted-foreground">parcela {formatCentavos(item.emAbertoCentavos)}</p>
-          )}
         </div>
       </div>
+      {item.jurosCentavos > 0 && (
+        <p className="num -mt-2 text-xs font-semibold text-late">
+          {detalheAtraso({
+            valorCentavos: item.emAbertoCentavos,
+            jurosCentavos: item.jurosCentavos,
+            diasAtraso: item.diasRelativos,
+            pagoEmParte: item.parcela.pago_centavos > 0,
+          })}
+        </p>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         {selo}

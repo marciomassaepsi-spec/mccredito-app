@@ -27,9 +27,9 @@ const pedidoBase = {
 };
 
 describe("renegociação: quanto falta", () => {
-  it("soma valor − pago das parcelas em aberto, sem multa e mora", () => {
-    const s = saldoParaRenegociar(contrato, "2026-11-12", 0.02, 0.01);
-    expect(s).toEqual({ saldoCentavos: 50000, parcelasEmAberto: 2, atrasadas: 0, multaCentavos: 0, moraCentavos: 0, encargosCentavos: 0 });
+  it("soma valor − pago das parcelas em aberto, sem juros de atraso", () => {
+    const s = saldoParaRenegociar(contrato, "2026-11-12", 0.01);
+    expect(s).toEqual({ saldoCentavos: 50000, parcelasEmAberto: 2, atrasadas: 0, encargosCentavos: 0 });
   });
 
   it("parcela paga em parte entra só com o que falta; canceladas e pagas ficam de fora", () => {
@@ -38,27 +38,31 @@ describe("renegociação: quanto falta", () => {
       { ...contrato[4], status: "cancelada" },
       contrato[5],
     ];
-    const s = saldoParaRenegociar(parcelas, "2026-11-12", 0.02, 0.01);
+    const s = saldoParaRenegociar(parcelas, "2026-11-12", 0.01);
     expect(s.saldoCentavos).toBe(15000 + 25000);
     expect(s.parcelasEmAberto).toBe(2);
   });
 
-  it("parcela atrasada: multa e mora até a data da renegociação, separadas do saldo", () => {
-    // 5ª venceu em 20/11; renegociando em 30/11 são 10 dias: multa 2% = R$ 5,00, mora 1% a.m. = R$ 0,83
-    const s = saldoParaRenegociar(contrato, "2026-11-30", 0.02, 0.01);
+  it("parcela atrasada: juros de 1% ao dia até a data da renegociação, separados do saldo", () => {
+    // 5ª venceu em 20/11; renegociando em 30/11 são 10 dias: R$ 250,00 × 1% × 10 = R$ 25,00
+    const s = saldoParaRenegociar(contrato, "2026-11-30", 0.01);
     expect(s.saldoCentavos).toBe(50000);
     expect(s.atrasadas).toBe(1);
-    expect(s.multaCentavos).toBe(500);
-    expect(s.moraCentavos).toBe(83);
-    expect(s.encargosCentavos).toBe(583);
+    expect(s.encargosCentavos).toBe(2500);
     expect(valorDoNovoContrato(s, false, 50000)).toBe(100000);
-    expect(valorDoNovoContrato(s, true, 50000)).toBe(100583);
+    expect(valorDoNovoContrato(s, true, 50000)).toBe(102500);
+  });
+
+  it("parcela atrasada paga em parte: juros só sobre o que falta", () => {
+    const parcelas: ParcelaDoContrato[] = [{ ...contrato[4], status: "paga_parcial", pago_centavos: 10000 }, contrato[5]];
+    // faltam R$ 150,00 da 5ª × 1% × 10 dias = R$ 15,00
+    expect(saldoParaRenegociar(parcelas, "2026-11-30", 0.01).encargosCentavos).toBe(1500);
   });
 });
 
 describe("renegociação: novo contrato", () => {
   it("exemplo do dono: faltam R$ 500, manda mais R$ 500, novo contrato de R$ 1.000 em 6x de R$ 250", () => {
-    const saldo = saldoParaRenegociar(contrato, "2026-11-12", 0.02, 0.01);
+    const saldo = saldoParaRenegociar(contrato, "2026-11-12", 0.01);
     const r = planejarRenegociacao({ ...pedidoBase, saldo, dinheiroNovoCentavos: 50000 });
     if (!r.ok) throw new Error(r.erro);
     const p = r.plano;
@@ -84,17 +88,17 @@ describe("renegociação: novo contrato", () => {
     expect(detalheRenegociacao(p)).toBe("saldo R$ 500,00 + R$ 500,00 novos");
   });
 
-  it("sem dinheiro novo e com multa e mora somadas", () => {
-    const saldo = saldoParaRenegociar(contrato, "2026-11-30", 0.02, 0.01);
+  it("sem dinheiro novo e com os juros de atraso somados", () => {
+    const saldo = saldoParaRenegociar(contrato, "2026-11-30", 0.01);
     const r = planejarRenegociacao({ ...pedidoBase, saldo, somarEncargos: true, dinheiroNovoCentavos: 0, parcelaCentavos: 15000, qtdParcelas: 4 });
     if (!r.ok) throw new Error(r.erro);
-    expect(r.plano.valorCentavos).toBe(50583);
-    expect(r.plano.encargosCentavos).toBe(583);
-    expect(observacaoRenegociacao(r.plano)).toBe("Renegociação: saldo R$ 500,00 + multa e mora R$ 5,83, sem dinheiro novo");
+    expect(r.plano.valorCentavos).toBe(52500);
+    expect(r.plano.encargosCentavos).toBe(2500);
+    expect(observacaoRenegociacao(r.plano)).toBe("Renegociação: saldo R$ 500,00 + juros de atraso R$ 25,00, sem dinheiro novo");
   });
 
   it("pela taxa, com o sistema escolhido", () => {
-    const saldo = saldoParaRenegociar(contrato, "2026-11-12", 0.02, 0.01);
+    const saldo = saldoParaRenegociar(contrato, "2026-11-12", 0.01);
     const r = planejarRenegociacao({ ...pedidoBase, saldo, dinheiroNovoCentavos: 50000, modo: "taxa", taxaMensal: 0.1, parcelaCentavos: null, sistema: "sac" });
     if (!r.ok) throw new Error(r.erro);
     expect(r.plano.taxaMensal).toBe(0.1);
@@ -103,7 +107,7 @@ describe("renegociação: novo contrato", () => {
   });
 
   it("parcela que não fecha com o valor do contrato dá um erro claro", () => {
-    const saldo = saldoParaRenegociar(contrato, "2026-11-12", 0.02, 0.01);
+    const saldo = saldoParaRenegociar(contrato, "2026-11-12", 0.01);
     const r = planejarRenegociacao({ ...pedidoBase, saldo, dinheiroNovoCentavos: 50000, parcelaCentavos: 15000 });
     expect(r).toEqual({
       ok: false,
@@ -113,9 +117,9 @@ describe("renegociação: novo contrato", () => {
   });
 
   it("recusa dinheiro novo negativo e contrato sem parcelas em aberto", () => {
-    const saldo = saldoParaRenegociar(contrato, "2026-11-12", 0.02, 0.01);
+    const saldo = saldoParaRenegociar(contrato, "2026-11-12", 0.01);
     expect(planejarRenegociacao({ ...pedidoBase, saldo, dinheiroNovoCentavos: -1 })).toMatchObject({ ok: false, campo: "dinheiro_novo" });
-    const quitado = saldoParaRenegociar(contrato.slice(0, 4), "2026-11-12", 0.02, 0.01);
+    const quitado = saldoParaRenegociar(contrato.slice(0, 4), "2026-11-12", 0.01);
     expect(planejarRenegociacao({ ...pedidoBase, saldo: quitado, dinheiroNovoCentavos: 0 })).toMatchObject({ ok: false, campo: "geral" });
   });
 

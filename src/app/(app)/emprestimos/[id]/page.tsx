@@ -8,9 +8,9 @@ import { Selo, type Tom } from "@/components/app/selo";
 import { buttonVariants } from "@/components/ui/button";
 import { linkArquivo } from "@/lib/arquivos";
 import { NOME_PERIODICIDADE, NOME_SISTEMA, NOME_SITUACAO, resumirParcelas, situacaoParcela, type Situacao } from "@/lib/emprestimos";
-import { atualizarAtraso } from "@/lib/finance";
+import { atualizarAtraso, jurosAtrasoDiario } from "@/lib/finance";
 import { formatCentavos, formatData, formatPercentual, hojeISO } from "@/lib/format";
-import { recebidoDoPagamento } from "@/lib/pagamentos";
+import { detalheAtraso, recebidoDoPagamento, textoJurosDoPagamento } from "@/lib/pagamentos";
 import { requireUser } from "@/lib/supabase/server";
 
 import { CancelarForm } from "./cancelar-form";
@@ -56,7 +56,7 @@ export default async function EmprestimoPage({ params, searchParams }: PageProps
       .maybeSingle(),
     supabase
       .from("configuracoes")
-      .select("multa_percentual, mora_percentual_mes, cnpj_empresa, cidade, chave_pix")
+      .select("juros_atraso_dia_percentual, cnpj_empresa, cidade, chave_pix")
       .maybeSingle(),
     supabase.from("perfis").select("papel").maybeSingle(),
     supabase.from("emprestimos").select("id").eq("renegociado_de", id).maybeSingle(),
@@ -70,9 +70,8 @@ export default async function EmprestimoPage({ params, searchParams }: PageProps
   const dinheiroNovo = reneg?.dinheiro_novo_centavos ?? null;
 
   const hoje = hojeISO();
-  const resumo = resumirParcelas(e.parcelas, hoje);
-  const multa = Number(config?.multa_percentual ?? 2) / 100;
-  const mora = Number(config?.mora_percentual_mes ?? 1) / 100;
+  const jurosDiario = jurosAtrasoDiario(config?.juros_atraso_dia_percentual);
+  const resumo = resumirParcelas(e.parcelas, hoje, jurosDiario);
   const total = e.parcelas.reduce((s, p) => s + p.valor_centavos, 0);
   const ativo = e.status === "ativo";
   const admin = perfil?.papel === "admin";
@@ -140,14 +139,23 @@ export default async function EmprestimoPage({ params, searchParams }: PageProps
           <p className="text-sm font-bold text-muted-foreground">Falta receber</p>
           <p className="num font-heading text-2xl font-black">{formatCentavos(resumo.emAbertoCentavos)}</p>
           <p className="num text-sm text-muted-foreground">de {formatCentavos(total)}</p>
+          {ativo && resumo.jurosAtrasoCentavos > 0 && (
+            <p className="num text-sm font-semibold text-late">+ {formatCentavos(resumo.jurosAtrasoCentavos)} de juros de atraso</p>
+          )}
         </div>
       </section>
 
       {resumo.atrasadas > 0 && ativo && (
-        <p className="rounded-xl bg-late-soft px-4 py-3 font-semibold text-late">
-          {resumo.atrasadas} {resumo.atrasadas === 1 ? "parcela atrasada" : "parcelas atrasadas"}, somando{" "}
-          {formatCentavos(resumo.atrasadoCentavos)} sem multa e mora.
-        </p>
+        <div className="rounded-xl bg-late-soft px-4 py-3 text-late">
+          <p className="font-semibold">
+            {resumo.atrasadas} {resumo.atrasadas === 1 ? "parcela atrasada" : "parcelas atrasadas"}, somando{" "}
+            <span className="whitespace-nowrap">{formatCentavos(resumo.atrasadoCentavos)}</span> com juros de atraso.
+          </p>
+          <p className="num text-sm">
+            {resumo.atrasadas === 1 ? "parcela" : "parcelas"} {formatCentavos(resumo.atrasadoSemJurosCentavos)} + juros{" "}
+            {formatCentavos(resumo.jurosAtrasoCentavos)} ({formatPercentual(jurosDiario, 3)} ao dia)
+          </p>
+        </div>
       )}
 
       {ativo && podeReceber && resumo.proxima && (
@@ -175,19 +183,32 @@ export default async function EmprestimoPage({ params, searchParams }: PageProps
         <ol className="mt-2 divide-y">
           {e.parcelas.map((p) => {
             const s = situacaoParcela(p, hoje);
-            const atualizado = s.situacao === "atrasada" ? atualizarAtraso(s.emAbertoCentavos, s.diasAtraso, multa, mora) : null;
+            const atualizado = s.situacao === "atrasada" ? atualizarAtraso(s.emAbertoCentavos, s.diasAtraso, jurosDiario) : null;
             const aberta = ativo && s.emAbertoCentavos > 0;
             return (
               <li key={p.id} className="grid grid-cols-[2.25rem_1fr_auto] items-center gap-x-3 gap-y-1 px-4 py-3">
                 <span className="num text-sm font-bold text-muted-foreground">{p.numero}ª</span>
                 <div className="min-w-0">
-                  <p className="num font-bold">{formatCentavos(p.valor_centavos)}</p>
+                  {atualizado ? (
+                    <>
+                      <p className="num font-bold text-late">{formatCentavos(atualizado.totalCentavos)}</p>
+                      <p className="num text-xs font-semibold text-late">
+                        {detalheAtraso({
+                          valorCentavos: atualizado.valorOriginalCentavos,
+                          jurosCentavos: atualizado.jurosCentavos,
+                          diasAtraso: atualizado.diasAtraso,
+                          pagoEmParte: p.pago_centavos > 0,
+                        })}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="num font-bold">{formatCentavos(p.valor_centavos)}</p>
+                  )}
                   <p className="num text-sm text-muted-foreground">
                     {formatData(p.vencimento)}
                     {p.status === "paga" && p.quitada_em && ` · paga em ${formatData(p.quitada_em)}`}
-                    {p.status === "paga_parcial" && ` · pago ${formatCentavos(p.pago_centavos)}`}
+                    {p.status === "paga_parcial" && ` · pago ${formatCentavos(p.pago_centavos)} de ${formatCentavos(p.valor_centavos)}`}
                   </p>
-                  {atualizado && <p className="num text-sm font-semibold text-late">Atualizada: {formatCentavos(atualizado.totalCentavos)}</p>}
                 </div>
                 <div className="flex flex-col items-end gap-1.5">
                   <Selo tom={TOM[s.situacao]}>
@@ -223,7 +244,7 @@ export default async function EmprestimoPage({ params, searchParams }: PageProps
                   </p>
                   {(pg.multa_centavos > 0 || pg.mora_centavos > 0 || pg.desconto_centavos > 0) && (
                     <p className="num text-xs text-muted-foreground">
-                      {pg.multa_centavos + pg.mora_centavos > 0 && `encargos ${formatCentavos(pg.multa_centavos + pg.mora_centavos)}`}
+                      {textoJurosDoPagamento(pg)}
                       {pg.desconto_centavos > 0 && ` desconto ${formatCentavos(pg.desconto_centavos)}`}
                     </p>
                   )}

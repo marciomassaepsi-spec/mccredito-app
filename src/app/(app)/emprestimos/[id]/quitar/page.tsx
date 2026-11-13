@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { jurosAtrasoDiario } from "@/lib/finance";
 import { hojeISO } from "@/lib/format";
 import { requireUser } from "@/lib/supabase/server";
 
@@ -18,7 +19,7 @@ export default async function QuitarPage({ params }: PageProps<"/emprestimos/[id
       .select("id, status, taxa_percentual, clientes(nome), parcelas(id, numero, vencimento, valor_centavos, pago_centavos, status)")
       .eq("id", id)
       .maybeSingle(),
-    supabase.from("configuracoes").select("multa_percentual, mora_percentual_mes").maybeSingle(),
+    supabase.from("configuracoes").select("juros_atraso_dia_percentual").maybeSingle(),
   ]);
   if (!e) notFound();
   const abertas = e.parcelas.filter((p) => p.status === "a_vencer" || p.status === "paga_parcial");
@@ -45,8 +46,7 @@ export default async function QuitarPage({ params }: PageProps<"/emprestimos/[id
           parcelas={abertas}
           taxaMensal={Number(e.taxa_percentual) / 100}
           hoje={hojeISO()}
-          multa={Number(config?.multa_percentual ?? 2) / 100}
-          mora={Number(config?.mora_percentual_mes ?? 1) / 100}
+          jurosDiario={jurosAtrasoDiario(config?.juros_atraso_dia_percentual)}
         />
       )}
     </div>

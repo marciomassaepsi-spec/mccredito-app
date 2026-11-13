@@ -112,8 +112,9 @@ export async function carregarTabelas(supabase: SupabaseClient<Database>) {
         { titulo: "Cliente", tipo: "texto", valor: (p) => p.parcelas?.emprestimos?.clientes?.nome ?? "" },
         { titulo: "Parcela", tipo: "numero", valor: (p) => p.parcelas?.numero ?? null },
         { titulo: "Abatido da parcela", tipo: "dinheiro", valor: (p) => reais(p.valor_centavos) },
-        { titulo: "Multa", tipo: "dinheiro", valor: (p) => reais(p.multa_centavos) },
-        { titulo: "Mora", tipo: "dinheiro", valor: (p) => reais(p.mora_centavos) },
+        // Desde a regra de 1% ao dia, os juros de atraso vão em mora e a multa é 0
+        { titulo: "Multa (antiga)", tipo: "dinheiro", valor: (p) => reais(p.multa_centavos) },
+        { titulo: "Juros de atraso", tipo: "dinheiro", valor: (p) => reais(p.mora_centavos) },
         { titulo: "Desconto", tipo: "dinheiro", valor: (p) => reais(p.desconto_centavos) },
         {
           titulo: "Recebido",

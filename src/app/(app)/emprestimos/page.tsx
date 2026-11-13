@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Selo } from "@/components/app/selo";
 import { buttonVariants } from "@/components/ui/button";
 import { resumirParcelas } from "@/lib/emprestimos";
+import { jurosAtrasoDiario } from "@/lib/finance";
 import { formatCentavos, formatData, hojeISO } from "@/lib/format";
 import { requireUser } from "@/lib/supabase/server";
 import { cn } from "cn";
@@ -37,10 +38,14 @@ export default async function EmprestimosPage({ searchParams }: PageProps<"/empr
   if (filtro === "quitados") consulta = consulta.eq("status", "quitado");
   if (filtro === "cancelados") consulta = consulta.in("status", ["cancelado", "renegociado"]);
 
-  const { data, error } = await consulta;
+  const [{ data, error }, { data: config }] = await Promise.all([
+    consulta,
+    supabase.from("configuracoes").select("juros_atraso_dia_percentual").maybeSingle(),
+  ]);
   const hoje = hojeISO();
+  const jurosDiario = jurosAtrasoDiario(config?.juros_atraso_dia_percentual);
   const lista = (data ?? [])
-    .map((e) => ({ ...e, resumo: resumirParcelas(e.parcelas, hoje) }))
+    .map((e) => ({ ...e, resumo: resumirParcelas(e.parcelas, hoje, jurosDiario) }))
     .filter((e) => filtro !== "atraso" || e.resumo.atrasadas > 0)
     .sort((a, b) => (filtro === "atraso" ? b.resumo.maiorAtrasoDias - a.resumo.maiorAtrasoDias : 0));
 
@@ -106,6 +111,11 @@ export default async function EmprestimosPage({ searchParams }: PageProps<"/empr
                   {e.resumo.pagas}/{e.resumo.total} pagas
                 </span>
               </div>
+              {e.status === "ativo" && e.resumo.atrasadas > 0 && (
+                <p className="num text-sm font-semibold text-late">
+                  {formatCentavos(e.resumo.atrasadoCentavos)} atrasado, com {formatCentavos(e.resumo.jurosAtrasoCentavos)} de juros
+                </p>
+              )}
             </Link>
           </li>
         ))}

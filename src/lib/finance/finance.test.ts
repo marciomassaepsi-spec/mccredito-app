@@ -10,6 +10,7 @@ import {
   diasEntre,
   gerarCronograma,
   gerarVencimentos,
+  jurosAtrasoDiario,
   mensalParaAnual,
   montanteComposto,
   montanteSimples,
@@ -156,20 +157,49 @@ describe("Taxas", () => {
   });
 });
 
-describe("Atraso", () => {
-  it("R$ 229,61 com 10 dias de atraso: multa 2% (R$ 4,59) + mora 1% a.m. pro rata (R$ 0,77)", () => {
-    expect(atualizarAtraso(22961, 10, 0.02, 0.01)).toEqual({
+describe("Atraso: 1% ao dia sobre a parcela, sem multa e sem teto", () => {
+  it("R$ 250,00 com 10 dias de atraso: R$ 25,00 de juros, R$ 275,00 no total", () => {
+    expect(atualizarAtraso(25000, 10, 0.01)).toEqual({
       diasAtraso: 10,
-      valorOriginalCentavos: 22961,
-      multaCentavos: 459,
-      moraCentavos: 77,
-      totalCentavos: 23497,
+      valorOriginalCentavos: 25000,
+      jurosCentavos: 2500,
+      totalCentavos: 27500,
     });
   });
 
-  it("sem atraso não cobra nada a mais", () => {
-    expect(atualizarAtraso(22961, 0, 0.02, 0.01).totalCentavos).toBe(22961);
-    expect(atualizarAtraso(22961, -3, 0.02, 0.01).totalCentavos).toBe(22961);
+  it("sem teto: R$ 250,00 com 100 dias vai a R$ 500,00, e com 150 dias a R$ 625,00", () => {
+    expect(atualizarAtraso(25000, 100, 0.01).totalCentavos).toBe(50000);
+    expect(atualizarAtraso(25000, 150, 0.01).totalCentavos).toBe(62500);
+  });
+
+  it("no dia do vencimento (ou antes) não cobra nada a mais", () => {
+    expect(atualizarAtraso(25000, 0, 0.01)).toEqual({ diasAtraso: 0, valorOriginalCentavos: 25000, jurosCentavos: 0, totalCentavos: 25000 });
+    expect(atualizarAtraso(25000, -3, 0.01).totalCentavos).toBe(25000);
+  });
+
+  it("taxa configurada de 0,5% ao dia: R$ 250,00 com 10 dias = R$ 262,50", () => {
+    expect(atualizarAtraso(25000, 10, 0.005)).toMatchObject({ jurosCentavos: 1250, totalCentavos: 26250 });
+    expect(atualizarAtraso(25000, 10, 0).totalCentavos).toBe(25000);
+  });
+
+  it("juros simples arredondados para o centavo", () => {
+    // 229,61 × 1% × 10 = 22,961 → 22,96
+    expect(atualizarAtraso(22961, 10, 0.01).jurosCentavos).toBe(2296);
+    // 0,5 centavo sobe: 50 × 1% × 1 = 0,5 → 1
+    expect(atualizarAtraso(50, 1, 0.01).jurosCentavos).toBe(1);
+  });
+
+  it("recusa valor ou taxa inválidos", () => {
+    expect(() => atualizarAtraso(-1, 10, 0.01)).toThrow(RangeError);
+    expect(() => atualizarAtraso(25000, 10, -0.01)).toThrow(RangeError);
+  });
+
+  it("taxa das Configurações: percentual vira decimal, padrão 1%", () => {
+    expect(jurosAtrasoDiario(1)).toBe(0.01);
+    expect(jurosAtrasoDiario("0.5")).toBe(0.005);
+    expect(jurosAtrasoDiario(null)).toBe(0.01);
+    expect(jurosAtrasoDiario(undefined)).toBe(0.01);
+    expect(jurosAtrasoDiario(Number.NaN)).toBe(0.01);
   });
 
   it("conta os dias pelas datas", () => {
@@ -177,7 +207,8 @@ describe("Atraso", () => {
     expect(diasEntre("2026-02-28", "2026-03-01")).toBe(1);
     expect(diasEntre("2026-10-04", "2026-10-01")).toBe(-3);
     // exemplo da tela de cobrança do plano: 12 dias de atraso
-    expect(atualizarPorDatas(22961, "2026-09-22", "2026-10-04", 0.02, 0.01).totalCentavos).toBe(23512);
+    // 12 dias a 1% ao dia: 229,61 + 27,55
+    expect(atualizarPorDatas(22961, "2026-09-22", "2026-10-04", 0.01).totalCentavos).toBe(25716);
   });
 });
 

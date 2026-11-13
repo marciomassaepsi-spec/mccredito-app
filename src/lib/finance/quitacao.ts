@@ -16,7 +16,7 @@ export type Quitacao = {
  * Quitação antecipada com desconto proporcional dos juros futuros: cada parcela
  * que ainda vai vencer é trazida a valor presente pela taxa do contrato, pelos
  * dias que faltam (base de 30 dias por mês). Parcelas já vencidas entram cheias;
- * multa e mora delas são calculadas à parte.
+ * os juros de atraso delas são calculados à parte (lib/pagamentos.ts).
  *
  * @param taxaMensal decimal (10% = 0.1)
  * @param dataQuitacao "aaaa-mm-dd"

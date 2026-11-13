@@ -94,6 +94,7 @@ export type Database = {
           cobranca_hora_inicio: string;
           documento_empresa: string;
           id: boolean;
+          juros_atraso_dia_percentual: number;
           limite_contratos_ativos: number;
           modelo_contrato: string;
           mora_limite_aviso: number;
@@ -114,6 +115,7 @@ export type Database = {
           cobranca_hora_inicio?: string;
           documento_empresa?: string;
           id?: boolean;
+          juros_atraso_dia_percentual?: number;
           limite_contratos_ativos?: number;
           modelo_contrato?: string;
           mora_limite_aviso?: number;
@@ -134,6 +136,7 @@ export type Database = {
           cobranca_hora_inicio?: string;
           documento_empresa?: string;
           id?: boolean;
+          juros_atraso_dia_percentual?: number;
           limite_contratos_ativos?: number;
           modelo_contrato?: string;
           mora_limite_aviso?: number;

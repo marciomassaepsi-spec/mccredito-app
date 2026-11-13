@@ -23,4 +23,5 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   `npm run db:types` + atualizar a lista de migrations no README.
 - Formulários usam `useAcaoSemReset` (não `<form action>`), para o React não limpar os campos.
 - Sem PIX copia-e-cola: o dono pediu para usar só a chave PIX da conta.
+- Atraso: 1% ao dia (configurável) sobre o valor em aberto da parcela, sem multa e sem teto; sempre calculado na hora
 - Antes de commitar: `npm test`, `npm run typecheck`, `npm run lint`, `npm run build`.

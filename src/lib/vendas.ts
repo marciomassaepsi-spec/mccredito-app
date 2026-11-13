@@ -9,7 +9,7 @@
  *   para o novo contrato não conta de novo: o contrato original já contou no
  *   mês em que foi feito. Renegociação sem dinheiro novo fica de fora.
  * - "Juros" são os juros combinados no contrato (soma dos juros das parcelas),
- *   sem multa e mora, que dependem de atraso e não da venda.
+ *   sem juros de atraso, que dependem do atraso e não da venda.
  */
 import { mesDe } from "./painel";
 
@@ -34,7 +34,7 @@ export type ResumoVendas = {
   jurosCentavos: number;
   /** emprestado + juros: o total que esses contratos rendem se forem pagos em dia */
   totalCentavos: number;
-  /** já recebido desses contratos (parcelas, sem multa e mora) */
+  /** já recebido desses contratos (parcelas, sem juros de atraso) */
   recebidoCentavos: number;
   ticketMedioCentavos: number;
   /** taxa ao mês média, ponderada pelo valor emprestado, em decimal */

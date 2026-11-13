@@ -14,8 +14,7 @@ export type ConfigInicial = {
   tipo_chave_pix: string;
   chave_pix: string;
   nome_recebedor_pix: string;
-  multa_percentual: string;
-  mora_percentual_mes: string;
+  juros_atraso_dia_percentual: string;
   cobranca_hora_inicio: string;
   cobranca_hora_fim: string;
   limite_contratos_ativos: string;
@@ -99,13 +98,21 @@ export function ConfigForm({ inicial }: { inicial: ConfigInicial }) {
       </Secao>
 
       <Secao titulo="Atraso e cobrança">
+        <Campo
+          id="juros_atraso_dia_percentual"
+          rotulo="Juros por dia de atraso (%)"
+          erro={e.juros_atraso_dia_percentual}
+          dica="Sobre o que falta pagar da parcela, por dia de atraso, sem multa e sem teto. Padrão: 1 (R$ 250,00 com 10 dias = R$ 275,00)."
+        >
+          <Entrada
+            id="juros_atraso_dia_percentual"
+            name="juros_atraso_dia_percentual"
+            inputMode="decimal"
+            defaultValue={v("juros_atraso_dia_percentual")}
+            erro={e.juros_atraso_dia_percentual}
+          />
+        </Campo>
         <div className="grid grid-cols-2 gap-4">
-          <Campo id="multa_percentual" rotulo="Multa por atraso (%)" erro={e.multa_percentual} dica="Limite legal: 2%">
-            <Entrada id="multa_percentual" name="multa_percentual" inputMode="decimal" defaultValue={v("multa_percentual")} erro={e.multa_percentual} />
-          </Campo>
-          <Campo id="mora_percentual_mes" rotulo="Mora ao mês (%)" erro={e.mora_percentual_mes} dica="Cobrada por dia de atraso">
-            <Entrada id="mora_percentual_mes" name="mora_percentual_mes" inputMode="decimal" defaultValue={v("mora_percentual_mes")} erro={e.mora_percentual_mes} />
-          </Campo>
           <Campo id="cobranca_hora_inicio" rotulo="Cobrar a partir de" erro={e.cobranca_hora_inicio}>
             <Entrada id="cobranca_hora_inicio" name="cobranca_hora_inicio" type="time" defaultValue={v("cobranca_hora_inicio")} erro={e.cobranca_hora_inicio} />
           </Campo>

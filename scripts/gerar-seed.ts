@@ -175,9 +175,10 @@ CENARIOS.forEach((cenario, i) => {
 
     if (pago > 0) {
       const dataPagamento = quitadaEm ?? somarDias(p.vencimento, 1);
-      const atraso = atualizarAtraso(pago, diasEntre(p.vencimento, dataPagamento), 0.02, 0.01);
+      // Juros de atraso de 1% ao dia vão em mora; não há multa
+      const atraso = atualizarAtraso(pago, diasEntre(p.vencimento, dataPagamento), 0.01);
       pagamentos.push(
-        `insert into pagamentos (id, parcela_id, valor_centavos, multa_centavos, mora_centavos, pago_em, forma) values (${texto(novoId())}, ${texto(parcelaId)}, ${pago}, ${atraso.multaCentavos}, ${atraso.moraCentavos}, ${sqlData(dataPagamento)}, '${escolher(["pix", "pix", "pix", "dinheiro", "transferencia"] as const)}');`,
+        `insert into pagamentos (id, parcela_id, valor_centavos, multa_centavos, mora_centavos, pago_em, forma) values (${texto(novoId())}, ${texto(parcelaId)}, ${pago}, 0, ${atraso.jurosCentavos}, ${sqlData(dataPagamento)}, '${escolher(["pix", "pix", "pix", "dinheiro", "transferencia"] as const)}');`,
       );
     }
 

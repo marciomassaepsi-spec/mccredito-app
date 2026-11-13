@@ -9,11 +9,13 @@ import { cnpjValido, cpfValido } from "@/lib/format";
 import { normalizarChavePix, type TipoChavePix } from "@/lib/pix";
 import { requireUser } from "@/lib/supabase/server";
 
-const percentual = (rotulo: string) =>
+/** Percentual digitado ("1", "0,5", "1%") dentro de uma faixa. */
+const percentual = (rotulo: string, maximo: number) =>
   z
     .string()
+    .refine((v) => v.trim() !== "", `${rotulo}: digite um número de 0 a ${maximo}.`)
     .transform((v) => Number(v.replace(",", ".").replace("%", "").trim()))
-    .refine((v) => Number.isFinite(v) && v >= 0 && v <= 100, `${rotulo}: digite um número de 0 a 100.`);
+    .refine((v) => Number.isFinite(v) && v >= 0 && v <= maximo, `${rotulo}: digite um número de 0 a ${maximo}.`);
 
 const hora = z.string().regex(/^\d{2}:\d{2}$/, "Escolha o horário.");
 
@@ -34,8 +36,8 @@ const configSchema = z
     tipo_chave_pix: z.enum(["", "cpf", "cnpj", "telefone", "email", "aleatoria"]),
     chave_pix: z.string().trim().max(120),
     nome_recebedor_pix: z.string().trim().max(120),
-    multa_percentual: percentual("Multa"),
-    mora_percentual_mes: percentual("Mora"),
+    // 1% ao dia sobre o valor em aberto da parcela, sem multa e sem teto (o banco aceita de 0 a 10)
+    juros_atraso_dia_percentual: percentual("Juros por dia de atraso", 10),
     cobranca_hora_inicio: hora,
     cobranca_hora_fim: hora,
     limite_contratos_ativos: z.coerce.number().int().min(1, "Mínimo 1.").max(10000, "Máximo 10.000."),

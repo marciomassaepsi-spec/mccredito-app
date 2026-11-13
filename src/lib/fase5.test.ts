@@ -13,7 +13,7 @@ import {
 } from "./contrato";
 import { gerarContratoPDF } from "./contrato-pdf";
 import { inteiroPorExtenso, reaisPorExtenso } from "./extenso";
-import { alocarRecebimento, encargosNaData, planoQuitacao, recebidoDoPagamento } from "./pagamentos";
+import { alocarRecebimento, colunasJurosAtraso, detalheAtraso, encargosNaData, planoQuitacao, recebidoDoPagamento } from "./pagamentos";
 
 describe("valor por extenso", () => {
   it.each([
@@ -49,40 +49,58 @@ describe("valor por extenso", () => {
   });
 });
 
-const parcela = { id: "p1", numero: 1, vencimento: "2026-09-25", valor_centavos: 22961, pago_centavos: 0 };
+const parcela = { id: "p1", numero: 1, vencimento: "2026-09-25", valor_centavos: 25000, pago_centavos: 0 };
 
-describe("pagamento de parcela", () => {
-  it("calcula multa e mora na data do pagamento", () => {
-    expect(encargosNaData(parcela, "2026-10-05", 0.02, 0.01)).toEqual({
-      emAbertoCentavos: 22961,
+describe("pagamento de parcela (juros de 1% ao dia)", () => {
+  it("R$ 250,00 paga com 10 dias de atraso vale R$ 275,00", () => {
+    expect(encargosNaData(parcela, "2026-10-05", 0.01)).toEqual({
+      emAbertoCentavos: 25000,
       diasAtraso: 10,
-      multaCentavos: 459,
-      moraCentavos: 77,
-      devidoCentavos: 23497,
+      jurosCentavos: 2500,
+      devidoCentavos: 27500,
     });
-    expect(encargosNaData(parcela, "2026-09-25", 0.02, 0.01).devidoCentavos).toBe(22961);
+    expect(encargosNaData(parcela, "2027-01-03", 0.01).devidoCentavos).toBe(50000); // 100 dias
   });
 
-  it("recebimento cobre primeiro multa e mora, depois a parcela", () => {
-    const enc = encargosNaData(parcela, "2026-10-05", 0.02, 0.01);
-    expect(alocarRecebimento(23497, enc, false)).toEqual({ ok: true, valor: 22961, multa: 459, mora: 77, parcial: false });
-    expect(alocarRecebimento(10000, enc, false)).toEqual({ ok: true, valor: 9464, multa: 459, mora: 77, parcial: true });
-    expect(alocarRecebimento(22961, enc, true)).toEqual({ ok: true, valor: 22961, multa: 0, mora: 0, parcial: false });
+  it("no dia do vencimento não tem juros", () => {
+    expect(encargosNaData(parcela, "2026-09-25", 0.01)).toEqual({ emAbertoCentavos: 25000, diasAtraso: 0, jurosCentavos: 0, devidoCentavos: 25000 });
   });
 
-  it("recusa receber mais que o devido ou menos que os encargos", () => {
-    const enc = encargosNaData(parcela, "2026-10-05", 0.02, 0.01);
-    expect(alocarRecebimento(23498, enc, false).ok).toBe(false);
-    expect(alocarRecebimento(500, enc, false).ok).toBe(false);
+  it("com a taxa configurada em 0,5% ao dia", () => {
+    expect(encargosNaData(parcela, "2026-10-05", 0.005).devidoCentavos).toBe(26250);
+  });
+
+  it("parcela paga em parte: os juros correm só sobre o que falta", () => {
+    // pagou R$ 100,00 antes; faltam R$ 150,00 → 10 dias a 1% = R$ 15,00
+    const enc = encargosNaData({ ...parcela, pago_centavos: 10000 }, "2026-10-05", 0.01);
+    expect(enc).toEqual({ emAbertoCentavos: 15000, diasAtraso: 10, jurosCentavos: 1500, devidoCentavos: 16500 });
+    expect(encargosNaData({ ...parcela, pago_centavos: 10000 }, "2026-09-25", 0.01).emAbertoCentavos).toBe(15000);
+  });
+
+  it("recebimento cobre primeiro os juros de atraso, depois a parcela", () => {
+    const enc = encargosNaData(parcela, "2026-10-05", 0.01);
+    expect(alocarRecebimento(27500, enc, false)).toEqual({ ok: true, valor: 25000, juros: 2500, parcial: false });
+    expect(alocarRecebimento(10000, enc, false)).toEqual({ ok: true, valor: 7500, juros: 2500, parcial: true });
+    expect(alocarRecebimento(25000, enc, true)).toEqual({ ok: true, valor: 25000, juros: 0, parcial: false });
+  });
+
+  it("recusa receber mais que o devido ou menos que os juros", () => {
+    const enc = encargosNaData(parcela, "2026-10-05", 0.01);
+    expect(alocarRecebimento(27501, enc, false).ok).toBe(false);
+    expect(alocarRecebimento(2500, enc, false).ok).toBe(false);
     expect(alocarRecebimento(0, enc, false).ok).toBe(false);
   });
 
-  it("parcela com pagamento parcial anterior cobra só o que falta", () => {
-    const enc = encargosNaData({ ...parcela, pago_centavos: 20000 }, "2026-09-25", 0.02, 0.01);
-    expect(enc.emAbertoCentavos).toBe(2961);
+  it("no banco: juros vão em mora e a multa é zero", () => {
+    expect(colunasJurosAtraso(2500)).toEqual({ multa: 0, mora: 2500 });
   });
 
-  it("recebido = valor + multa + mora − desconto", () => {
+  it("linha de detalhe da parcela atrasada", () => {
+    expect(detalheAtraso({ valorCentavos: 25000, jurosCentavos: 2500, diasAtraso: 10 })).toBe("parcela R$ 250,00 + juros R$ 25,00 · 10 dias");
+    expect(detalheAtraso({ valorCentavos: 15000, jurosCentavos: 150, diasAtraso: 1, pagoEmParte: true })).toBe("falta R$ 150,00 + juros R$ 1,50 · 1 dia");
+  });
+
+  it("recebido = valor + multa + mora − desconto (pagamentos antigos ainda têm multa)", () => {
     expect(recebidoDoPagamento({ valor_centavos: 22961, multa_centavos: 459, mora_centavos: 77, desconto_centavos: 0 })).toBe(23497);
     expect(recebidoDoPagamento({ valor_centavos: 22961, multa_centavos: 0, mora_centavos: 0, desconto_centavos: 1961 })).toBe(21000);
   });
@@ -99,21 +117,27 @@ describe("quitação antecipada", () => {
   }));
 
   it("o total para quitar é o saldo devedor da tabela", () => {
-    const plano = planoQuitacao(restantes, 0.1, "2026-10-01", 0.02, 0.01, false);
+    const plano = planoQuitacao(restantes, 0.1, "2026-10-01", 0.01, false);
     expect(plano.emAbertoCentavos).toBe(114803);
-    expect(plano.encargosCentavos).toBe(0);
+    expect(plano.jurosAtrasoCentavos).toBe(0);
     // cada parcela é arredondada separadamente: a soma pode diferir 1-2 centavos do saldo de 870,39
     expect(Math.abs(plano.totalCentavos - 87039)).toBeLessThanOrEqual(2);
     expect(plano.itens.map((i) => i.parcela_id)).toEqual(["p2", "p3", "p4", "p5", "p6"]);
   });
 
-  it("parcela atrasada entra com multa e mora e sem desconto", () => {
-    const plano = planoQuitacao([{ ...parcela }], 0.1, "2026-10-05", 0.02, 0.01, false);
-    expect(plano.itens[0]).toMatchObject({ valor: 22961, multa: 459, mora: 77, desconto: 0 });
-    expect(plano.totalCentavos).toBe(23497);
-    expect(planoQuitacao([{ ...parcela }], 0.1, "2026-10-05", 0.02, 0.01, true).totalCentavos).toBe(22961);
+  it("parcela atrasada entra com os juros de atraso e sem desconto", () => {
+    const plano = planoQuitacao([{ ...parcela }], 0.1, "2026-10-05", 0.01, false);
+    expect(plano.itens[0]).toMatchObject({ valor: 25000, diasAtraso: 10, juros: 2500, desconto: 0 });
+    expect(plano.jurosAtrasoCentavos).toBe(2500);
+    expect(plano.totalCentavos).toBe(27500);
+    expect(planoQuitacao([{ ...parcela }], 0.1, "2026-10-05", 0.01, true).totalCentavos).toBe(25000);
   });
 });
+
+const CLAUSULA_4_NOVA =
+  "A parcela paga depois do vencimento terá juros de {{juros_atraso_dia}} ao dia sobre o valor da parcela em atraso, contados por dia de atraso.\n\nO atraso de qualquer parcela por mais de 30 dias permite ao CREDOR considerar vencidas as parcelas seguintes e cobrar de uma vez o saldo devedor, com os juros de atraso acima.";
+const CLAUSULA_4_ANTIGA =
+  "A parcela paga depois do vencimento terá multa de {{multa}} sobre o valor em atraso e juros de mora de {{mora}} ao mês, calculados por dia de atraso.\n\nO atraso de qualquer parcela por mais de 30 dias permite ao CREDOR considerar vencidas as parcelas seguintes e cobrar de uma vez o saldo devedor, com os encargos acima.";
 
 /** Cópia do modelo padrão publicado até a versão anterior (credor pessoa física). */
 const MODELO_ANTIGO = `# CONTRATO DE EMPRÉSTIMO PESSOAL
@@ -181,8 +205,7 @@ const dados: DadosContrato = {
     sistema: "price",
     periodicidade: "mensal",
     liberadoEm: "2026-10-05",
-    multaPercentual: 2,
-    moraPercentual: 1,
+    jurosAtrasoDiaPercentual: 1,
   },
   parcelas: [34431, 34431, 34431, 34431, 34431, 34430].map((valor_centavos, i) => ({
     numero: i + 1,
@@ -308,11 +331,40 @@ describe("contrato", () => {
     const anterior = MODELO_PADRAO.replace(
       "{{entrega}}.\n\n{{renegociacao}}\n",
       "entregue em {{data_liberacao}}, da qual o DEVEDOR dá plena quitação ao assinar este contrato.\n",
-    );
+    ).replace(CLAUSULA_4_NOVA, CLAUSULA_4_ANTIGA);
     expect(anterior).not.toBe(MODELO_PADRAO);
     expect(ehModeloPadrao(anterior)).toBe(true);
     expect(modeloEmUso(anterior)).toBe(MODELO_PADRAO);
     expect(modeloEmUso(`${anterior}\nCláusula extra do dono.`)).not.toBe(MODELO_PADRAO);
+  });
+
+  it("cláusula 4 do padrão: juros de 1% ao dia, sem multa", () => {
+    const { blocos, desconhecidas } = preencherModelo(MODELO_PADRAO, montarVariaveis(dados));
+    expect(desconhecidas).toEqual([]);
+    const textos = blocos.map((b) => ("texto" in b ? b.texto : ""));
+    expect(textos).toContain(
+      "A parcela paga depois do vencimento terá juros de 1% ao dia sobre o valor da parcela em atraso, contados por dia de atraso.",
+    );
+    expect(textos.join("\n")).not.toMatch(/multa/i);
+    const meio = montarVariaveis({ ...dados, emprestimo: { ...dados.emprestimo, jurosAtrasoDiaPercentual: 0.5 } });
+    expect(meio.juros_atraso_dia).toBe("0,5%");
+  });
+
+  it("padrão com multa e mora (até novembro de 2026) passa a usar o novo", () => {
+    const comMulta = MODELO_PADRAO.replace(CLAUSULA_4_NOVA, CLAUSULA_4_ANTIGA);
+    expect(comMulta).not.toBe(MODELO_PADRAO);
+    expect(ehModeloPadrao(comMulta)).toBe(true);
+    expect(modeloEmUso(comMulta)).toBe(MODELO_PADRAO);
+  });
+
+  it("modelo personalizado com {{multa}} e {{mora}} não é reescrito: multa sai 0% e mora sai a taxa diária × 30", () => {
+    const personalizado = MODELO_PADRAO.replace(CLAUSULA_4_NOVA, CLAUSULA_4_ANTIGA).replace("Cláusula 7ª – Do foro", "Cláusula 7ª – Do foro escolhido");
+    expect(ehModeloPadrao(personalizado)).toBe(false);
+    expect(modeloEmUso(personalizado)).toBe(personalizado.trim());
+    const textos = preencherModelo(personalizado, montarVariaveis(dados)).blocos.map((b) => ("texto" in b ? b.texto : ""));
+    expect(textos).toContain(
+      "A parcela paga depois do vencimento terá multa de 0% sobre o valor em atraso e juros de mora de 30% ao mês, calculados por dia de atraso.",
+    );
   });
 
   it("aponta variável digitada errado", () => {

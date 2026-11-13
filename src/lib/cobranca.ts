@@ -27,8 +27,10 @@ export const VARIAVEIS_MENSAGEM: Array<[string, string]> = [
   ["cliente.nome", "Nome completo do cliente"],
   ["parcela.numero", "Número da parcela"],
   ["parcela.total", "Total de parcelas do empréstimo"],
-  ["parcela.valor", "Valor da parcela (sem multa e mora)"],
-  ["parcela.valor_atualizado", "Valor com multa e mora"],
+  ["parcela.valor", "Valor a pagar: numa parcela atrasada, já com os juros de atraso"],
+  ["parcela.valor_atualizado", "Valor com os juros de atraso (igual a parcela.valor)"],
+  ["parcela.valor_original", "Valor da parcela sem os juros de atraso (o que falta pagar)"],
+  ["parcela.juros_atraso", "Só os juros de atraso até hoje (R$ 0,00 se não está atrasada)"],
   ["parcela.vencimento", "Data de vencimento"],
   ["parcela.dias_atraso", "Dias de atraso"],
   ["empresa.nome", "Nome da empresa"],
@@ -81,10 +83,11 @@ export type ItemCobranca = {
   totalParcelas: number;
   grupo: "atrasada" | "hoje" | "proximos";
   diasRelativos: number;
+  /** O que falta pagar da parcela, sem juros de atraso */
   emAbertoCentavos: number;
-  multaCentavos: number;
-  moraCentavos: number;
-  /** Em aberto + multa + mora */
+  /** Juros de atraso até hoje */
+  jurosCentavos: number;
+  /** Em aberto + juros de atraso: o valor que aparece para o cliente */
   devidoCentavos: number;
   ultimoContato: Contato | null;
   /** Promessa de pagamento ainda válida (não venceu ou vence hoje) */
@@ -100,8 +103,8 @@ export function montarFila(
   emprestimos: EmprestimoCobranca[],
   contatos: Contato[],
   hoje: string,
-  multa: number,
-  mora: number,
+  /** Juros de atraso por dia, em decimal (1% = 0.01) */
+  jurosDiario: number,
   diasAFrente = 7,
 ): ItemCobranca[] {
   const contatosPorParcela = new Map<string, Contato[]>();
@@ -120,7 +123,7 @@ export function montarFila(
       const diasRelativos = diasEntre(p.vencimento, hoje);
       if (diasRelativos < -diasAFrente) continue;
       const grupo = s.situacao === "atrasada" ? "atrasada" : s.situacao === "vence_hoje" ? "hoje" : "proximos";
-      const a = atualizarAtraso(s.emAbertoCentavos, s.diasAtraso, multa, mora);
+      const a = atualizarAtraso(s.emAbertoCentavos, s.diasAtraso, jurosDiario);
       const daParcela = contatosPorParcela.get(p.id) ?? [];
       const ultimoContato = daParcela[0] ?? contatosPorCliente.get(e.clientes.id)?.[0] ?? null;
       const comPromessa = daParcela.find((c) => c.resultado === "prometeu_pagar" && c.promessa_para);
@@ -132,8 +135,7 @@ export function montarFila(
         grupo,
         diasRelativos,
         emAbertoCentavos: s.emAbertoCentavos,
-        multaCentavos: a.multaCentavos,
-        moraCentavos: a.moraCentavos,
+        jurosCentavos: a.jurosCentavos,
         devidoCentavos: a.totalCentavos,
         ultimoContato,
         promessa: comPromessa?.promessa_para ?? null,
@@ -151,15 +153,21 @@ export function montarFila(
   );
 }
 
-/** Variáveis para a mensagem de um item da fila. */
+/**
+ * Variáveis para a mensagem de um item da fila. Numa parcela atrasada, os
+ * valores já vêm com os juros de atraso; `parcela.valor_original` guarda o
+ * valor sem juros.
+ */
 export function variaveisDoItem(item: ItemCobranca, empresa: { nome: string; pix: string }): Record<string, string> {
   return {
     "cliente.primeiro_nome": primeiroNome(item.cliente.nome),
     "cliente.nome": item.cliente.nome,
     "parcela.numero": String(item.parcela.numero),
     "parcela.total": String(item.totalParcelas),
-    "parcela.valor": formatCentavos(item.emAbertoCentavos),
+    "parcela.valor": formatCentavos(item.devidoCentavos),
     "parcela.valor_atualizado": formatCentavos(item.devidoCentavos),
+    "parcela.valor_original": formatCentavos(item.emAbertoCentavos),
+    "parcela.juros_atraso": formatCentavos(item.jurosCentavos),
     "parcela.vencimento": formatData(item.parcela.vencimento),
     "parcela.dias_atraso": String(Math.max(0, item.diasRelativos)),
     "empresa.nome": empresa.nome,

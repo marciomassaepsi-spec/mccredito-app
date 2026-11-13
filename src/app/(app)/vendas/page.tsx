@@ -269,7 +269,7 @@ export default async function VendasPage({ searchParams }: PageProps<"/vendas">)
       </section>
 
       <p className="text-xs text-muted-foreground">
-        Conta pela data em que o dinheiro foi entregue. Os juros são os combinados no contrato, sem multa e mora.
+        Conta pela data em que o dinheiro foi entregue. Os juros são os combinados no contrato, sem os juros de atraso.
         Empréstimos cancelados ficam de fora. Numa renegociação, só conta o dinheiro novo que você mandou ao
         cliente, com a parte dos juros do novo contrato que cabe a ele; o saldo antigo já contou no mês do
         contrato original. Renegociação sem dinheiro novo fica de fora.

@@ -17,6 +17,7 @@ const ROTULOS: Record<string, string> = {
   status: "Situação", valor_centavos: "Valor", pago_centavos: "Pago", taxa_percentual: "Taxa (%)",
   qtd_parcelas: "Parcelas", vencimento: "Vencimento", primeiro_vencimento: "1º vencimento", quitada_em: "Quitada em", estornado: "Estornado",
   estorno_motivo: "Motivo do estorno", multa_percentual: "Multa (%)", mora_percentual_mes: "Mora ao mês (%)",
+  juros_atraso_dia_percentual: "Juros por dia de atraso (%)",
   chave_pix: "Chave PIX", tipo_chave_pix: "Tipo da chave", razao_social: "Responsável", documento_empresa: "CPF do responsável", cnpj_empresa: "CNPJ da empresa",
   cidade: "Cidade", nome_empresa: "Empresa", limite_contratos_ativos: "Limite de contratos",
   cobranca_hora_inicio: "Cobrar a partir de", cobranca_hora_fim: "Cobrar até", nome_recebedor_pix: "Titular do PIX",
