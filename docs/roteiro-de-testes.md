@@ -97,6 +97,24 @@ número do passo e o que apareceu na tela.
 - [ ] **8.5** Em **Vendas**, abra o mês de hoje: a renegociação aparece com a etiqueta
       **Renegociação** e conta só os R$ 500,00 de dinheiro novo.
 
+## 8a. Mudar vencimento
+
+- [ ] **8a.1** Num empréstimo ativo com parcelas em aberto, toque em **Mudar vencimento**. A
+      **Parcela** já vem com a primeira em aberto.
+- [ ] **8a.2** Em **Nova data de vencimento** escolha 10 dias depois da data atual, com **Mudar também
+      as parcelas seguintes** marcada. **O que muda** lista a parcela e todas as seguintes em aberto,
+      cada uma com a data antiga riscada e a nova, no mesmo dia de cada mês.
+- [ ] **8a.3** Desmarque **Mudar também as parcelas seguintes** e escolha uma data depois da parcela
+      seguinte: aparece o erro "… ficaria depois da …ª". Escolha uma data antes da seguinte: só uma
+      parcela aparece em **O que muda**.
+- [ ] **8a.4** Escolha uma data antes da liberação: aparece "A nova data não pode ser antes da
+      liberação".
+- [ ] **8a.5** Volte para a opção marcada, escreva um motivo, toque em **Mudar vencimento** e em
+      **Confirmar novas datas**. No empréstimo: aviso "Vencimento alterado", as parcelas com as datas
+      novas e os mesmos valores, e nas **Observações** a linha "Vencimento alterado em …".
+- [ ] **8a.6** **Abrir PDF** do contrato: a tabela de parcelas mostra as datas novas. Em
+      **Configurações → Histórico de alterações** aparece "Mudou o vencimento da parcela …".
+
 ## 8b. Contratos de antes do app
 
 - [ ] **8b.1** **Empréstimos → Novo**: valor `1.500,00`, toque em **Sei o valor da parcela** e digite

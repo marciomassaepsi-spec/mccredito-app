@@ -17,7 +17,8 @@ cobrança e calculadora de juros. Funciona no navegador e pode ser instalado no 
 | 8 | Revisão de segurança, direitos do cliente (LGPD) e roteiro de testes | Pronta |
 | 9 | Contratos de antes do app: parcelas já pagas, valor da parcela e importação por planilha | Pronta |
 | 10 | Vendas por mês: quanto foi emprestado e os juros desses contratos, com gráfico e detalhe do mês | Pronta |
-| 11 | Renegociar com dinheiro novo: o que falta + o que você manda vira um contrato novo | **Pronta** |
+| 11 | Renegociar com dinheiro novo: o que falta + o que você manda vira um contrato novo | Pronta |
+| 12 | Mudar a data de vencimento sem mexer em valores nem juros | **Pronta** |
 
 Depois de publicar, siga o [roteiro de testes](docs/roteiro-de-testes.md) (uns 20 minutos).
 
@@ -44,6 +45,7 @@ termos atuais em vercel.com/pricing antes de escolher.
    5. [`20261009120000_contratos_em_andamento.sql`](supabase/migrations/20261009120000_contratos_em_andamento.sql)
    6. [`20261112120000_cnpj_empresa.sql`](supabase/migrations/20261112120000_cnpj_empresa.sql)
    7. [`20261113120000_renegociacao_dinheiro_novo.sql`](supabase/migrations/20261113120000_renegociacao_dinheiro_novo.sql)
+   8. [`20261114120000_alterar_vencimento.sql`](supabase/migrations/20261114120000_alterar_vencimento.sql)
 
    Para cada um: abra aqui no GitHub, copie todo o conteúdo, cole no SQL Editor (em uma aba nova,
    **New query**) e clique em **Run**. Deve aparecer "Success. No rows returned".
@@ -145,6 +147,24 @@ tudo antes de salvar, com **O cliente recebe agora: R$ 500,00** em destaque.
   novo". No PDF do contrato novo, a cláusula 1 explica que o valor é o saldo anterior somado ao
   dinheiro entregue (variáveis `{{entrega}}` e `{{renegociacao}}`). Se você personalizou o modelo de
   contrato, acrescente essas duas variáveis nele.
+
+## Mudar a data de vencimento
+
+Quando o cliente pede para pagar em outro dia, abra o empréstimo e toque em **Mudar vencimento**.
+Só a data muda: valor das parcelas, juros, saldo e pagamentos continuam iguais.
+
+- **Parcela**: já vem a primeira em aberto; dá para escolher outra em aberto.
+- **Nova data de vencimento**: por exemplo, de dia 10 para dia 20.
+- **Mudar também as parcelas seguintes** (marcada): as parcelas em aberto depois dela passam a seguir
+  a nova data, na frequência do contrato (no mensal, o mesmo dia de cada mês; em mês sem esse dia,
+  o último dia do mês). Desmarcada, só aquela parcela muda, e a data não pode passar da parcela
+  seguinte.
+- **O que muda** mostra cada parcela com a data antiga riscada e a nova; depois é só confirmar.
+- O app anota nas observações do empréstimo, por exemplo: "Vencimento alterado em 14/11/2026:
+  parcelas 3 a 6 de 10/11/2026 para 20/11/2026. Cliente recebe o salário no dia 20."
+- Atraso, multa, mora, cobrança e o PDF do contrato passam a usar as datas novas. Cada parcela
+  alterada aparece no **Histórico de alterações** ("Mudou o vencimento da parcela 3").
+- A data não pode ser antes da liberação do dinheiro. Parcela paga ou cancelada não muda.
 
 ## Cobrança
 

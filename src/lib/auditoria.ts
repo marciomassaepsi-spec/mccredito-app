@@ -15,7 +15,7 @@ export type EntradaAuditoria = {
 const ROTULOS: Record<string, string> = {
   nome: "Nome", cpf: "CPF", whatsapp: "WhatsApp", endereco: "Endereço", observacoes: "Observações",
   status: "Situação", valor_centavos: "Valor", pago_centavos: "Pago", taxa_percentual: "Taxa (%)",
-  qtd_parcelas: "Parcelas", vencimento: "Vencimento", quitada_em: "Quitada em", estornado: "Estornado",
+  qtd_parcelas: "Parcelas", vencimento: "Vencimento", primeiro_vencimento: "1º vencimento", quitada_em: "Quitada em", estornado: "Estornado",
   estorno_motivo: "Motivo do estorno", multa_percentual: "Multa (%)", mora_percentual_mes: "Mora ao mês (%)",
   chave_pix: "Chave PIX", tipo_chave_pix: "Tipo da chave", razao_social: "Responsável", documento_empresa: "CPF do responsável", cnpj_empresa: "CNPJ da empresa",
   cidade: "Cidade", nome_empresa: "Empresa", limite_contratos_ativos: "Limite de contratos",
@@ -77,7 +77,9 @@ export function descreverEntrada(e: EntradaAuditoria): Descricao {
       titulo =
         e.acao === "alterou" && antes.status !== depois.status
           ? `Parcela ${atual.numero} ficou ${formatarValor("status", depois.status)}`
-          : `${e.acao === "criou" ? "Criou" : e.acao === "excluiu" ? "Excluiu" : "Alterou"} a parcela ${atual.numero}`;
+          : e.acao === "alterou" && antes.vencimento !== depois.vencimento
+            ? `Mudou o vencimento da parcela ${atual.numero}`
+            : `${e.acao === "criou" ? "Criou" : e.acao === "excluiu" ? "Excluiu" : "Alterou"} a parcela ${atual.numero}`;
       break;
     case "pagamentos":
       titulo =

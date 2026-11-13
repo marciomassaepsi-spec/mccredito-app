@@ -37,6 +37,12 @@ describe("histórico de alterações", () => {
     });
   });
 
+  it("vencimento alterado (só a data)", () => {
+    expect(
+      descreverEntrada({ id: 7, tabela: "parcelas", acao: "alterou", dados_antes: { numero: 3, status: "a_vencer", vencimento: "2026-11-10" }, dados_depois: { numero: 3, status: "a_vencer", vencimento: "2026-11-20" }, feito_em: "" }),
+    ).toEqual({ titulo: "Mudou o vencimento da parcela 3", mudancas: [{ campo: "Vencimento", antes: "10/11/2026", depois: "20/11/2026" }] });
+  });
+
   it("ignora campos técnicos e formata datas", () => {
     const d = descreverEntrada({ id: 4, tabela: "clientes", acao: "alterou", dados_antes: { id: "c", nome: "Ana", atualizado_em: "a" }, dados_depois: { id: "c", nome: "Ana Paula", atualizado_em: "b" }, feito_em: "" });
     expect(d).toEqual({ titulo: "Alterou o cliente Ana Paula", mudancas: [{ campo: "Nome", antes: "Ana", depois: "Ana Paula" }] });

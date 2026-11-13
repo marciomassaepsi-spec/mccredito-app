@@ -1,4 +1,4 @@
-import { HandCoins, Repeat, Wallet } from "lucide-react";
+import { CalendarClock, HandCoins, Repeat, Wallet } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -33,6 +33,7 @@ const AVISOS: Record<string, string> = {
   estorno: "Pagamento estornado. A parcela voltou a ficar em aberto.",
   quitado: "Empréstimo quitado.",
   renegociado: "Renegociação feita. Este é o empréstimo novo.",
+  vencimento: "Vencimento alterado. Valores e juros continuam os mesmos.",
 };
 
 const FORMA = { pix: "PIX", dinheiro: "Dinheiro", transferencia: "Transferência", outro: "Outro" } as const;
@@ -150,18 +151,21 @@ export default async function EmprestimoPage({ params, searchParams }: PageProps
       )}
 
       {ativo && podeReceber && resumo.proxima && (
-        <section className="grid grid-cols-3 gap-2">
+        <section className="grid grid-cols-2 gap-2">
           <Link
             href={`/emprestimos/${e.id}/receber?parcela=${resumo.proxima.id}`}
-            className={buttonVariants({ className: "h-16 flex-col gap-0.5 text-xs font-bold" })}
+            className={buttonVariants({ className: "h-14 gap-2 text-sm font-bold" })}
           >
             <HandCoins aria-hidden /> Receber {resumo.proxima.numero}ª
           </Link>
-          <Link href={`/emprestimos/${e.id}/quitar`} className={buttonVariants({ variant: "outline", className: "h-16 flex-col gap-0.5 text-xs font-bold" })}>
+          <Link href={`/emprestimos/${e.id}/quitar`} className={buttonVariants({ variant: "outline", className: "h-14 gap-2 text-sm font-bold" })}>
             <Wallet aria-hidden /> Quitar tudo
           </Link>
-          <Link href={`/emprestimos/${e.id}/renegociar`} className={buttonVariants({ variant: "outline", className: "h-16 flex-col gap-0.5 text-xs font-bold" })}>
+          <Link href={`/emprestimos/${e.id}/renegociar`} className={buttonVariants({ variant: "outline", className: "h-14 gap-2 text-sm font-bold" })}>
             <Repeat aria-hidden /> Renegociar
+          </Link>
+          <Link href={`/emprestimos/${e.id}/vencimento`} className={buttonVariants({ variant: "outline", className: "h-14 gap-2 text-sm font-bold" })}>
+            <CalendarClock aria-hidden /> Mudar vencimento
           </Link>
         </section>
       )}

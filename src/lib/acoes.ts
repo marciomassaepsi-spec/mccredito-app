@@ -56,6 +56,13 @@ export function mensagemDoBanco(erro: { code?: string; message?: string } | null
     return "O saldo do empréstimo mudou enquanto você conferia (talvez um pagamento entrou agora). Atualize a tela e confira os valores.";
   }
   if (msg.startsWith("DATA_INVALIDA")) return "A data da renegociação precisa ser entre a data do empréstimo e hoje.";
+  if (msg.startsWith("SEM_ACESSO")) return "Só o dono ou um operador pode fazer isso.";
+  if (msg.startsWith("VENCIMENTO_ANTES_LIBERACAO")) return "O vencimento não pode ser antes da data em que o dinheiro foi liberado.";
+  if (msg.startsWith("ORDEM_VENCIMENTOS")) {
+    const detalhe = msg.slice(msg.indexOf(":") + 1).trim();
+    return `Os vencimentos ficariam fora de ordem: ${detalhe}. Atualize a tela e confira as datas.`;
+  }
+  if (msg.startsWith("VENCIMENTO_INVALIDO")) return "As datas não conferem com as parcelas de agora. Atualize a tela e tente de novo.";
   // Função SQL ou coluna que ainda não existe no banco: faltou rodar a migration nova
   if (bancoDesatualizado(erro)) return FALTA_ATUALIZAR_BANCO;
   if (erro.code === "42501") return "Seu usuário não tem permissão para isso.";

@@ -483,6 +483,10 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      alterar_vencimentos: {
+        Args: { p_emprestimo: string; p_novas: Json; p_observacao: string };
+        Returns: undefined;
+      };
       cancelar_emprestimo: {
         Args: { p_id: string; p_motivo: string };
         Returns: undefined;

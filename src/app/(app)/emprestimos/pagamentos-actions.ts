@@ -11,6 +11,7 @@ import { montarVariaveis, preencherModelo } from "@/lib/contrato";
 import { carregarDadosContrato, nomeArquivoContrato } from "@/lib/contrato-dados";
 import { gerarContratoPDF } from "@/lib/contrato-pdf";
 import { hojeISO, parsePercentual, parseReaisParaCentavos } from "@/lib/format";
+import { remarcarVencimentos } from "@/lib/finance";
 import { alocarRecebimento, encargosNaData, planoQuitacao } from "@/lib/pagamentos";
 import { detalheRenegociacao, observacaoRenegociacao, planejarRenegociacao, saldoParaRenegociar } from "@/lib/renegociacao";
 import { requireUser } from "@/lib/supabase/server";
@@ -272,6 +273,52 @@ export async function renegociarEmprestimo(_anterior: EstadoForm, formData: Form
   });
   if (error || !novoId) return falha(valores, mensagemDoBanco(error));
   redirect(`/emprestimos/${novoId}?ok=renegociado`);
+}
+
+// ---------------------------------------------------------------------------
+// Mudar a data de vencimento: só as datas; valores e juros ficam iguais
+// ---------------------------------------------------------------------------
+const vencimentoSchema = z.object({
+  emprestimo_id: uuid,
+  parcela_id: z.string().uuid("Escolha a parcela."),
+  nova_data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Escolha a nova data."),
+  seguintes: z.string().optional(),
+  observacao: z.string().trim().max(500, "Até 500 letras.").default(""),
+});
+
+export async function alterarVencimento(_anterior: EstadoForm, formData: FormData): Promise<EstadoForm> {
+  const valores = lerFormulario(formData);
+  const dados = vencimentoSchema.safeParse(valores);
+  if (!dados.success) return falha(valores, "Confira os campos destacados.", errosDoZod(dados.error));
+  const d = dados.data;
+
+  const { supabase } = await requireUser();
+  const { data: e } = await supabase
+    .from("emprestimos")
+    .select("id, status, periodicidade, liberado_em, parcelas(id, numero, vencimento, status)")
+    .eq("id", d.emprestimo_id)
+    .maybeSingle();
+  if (!e) return falha(valores, "Empréstimo não encontrado.");
+  if (e.status !== "ativo") return falha(valores, "Só dá para mudar o vencimento de empréstimos ativos.");
+
+  // As datas novas saem daqui, com as parcelas de agora; o banco confere de novo
+  const r = remarcarVencimentos({
+    parcelas: e.parcelas,
+    parcelaId: d.parcela_id,
+    novaData: d.nova_data,
+    seguintes: d.seguintes === "on",
+    periodicidade: e.periodicidade,
+    liberadoEm: e.liberado_em,
+  });
+  if (!r.ok) return falha(valores, r.erro, { [r.campo]: r.erro });
+
+  const { error } = await supabase.rpc("alterar_vencimentos", {
+    p_emprestimo: e.id,
+    p_novas: r.mudancas.map((m) => ({ parcela_id: m.parcela_id, vencimento: m.depois })),
+    p_observacao: d.observacao,
+  });
+  if (error) return falha(valores, mensagemDoBanco(error));
+  redirect(`/emprestimos/${e.id}?ok=vencimento`);
 }
 
 // ---------------------------------------------------------------------------
