@@ -97,19 +97,27 @@ export default async function VendasPage({ searchParams }: PageProps<"/vendas">)
           {formatCentavos(total.emprestadoCentavos)}
         </p>
         <dl className="num mt-2 grid gap-1 border-t border-white/15 pt-2 text-sm">
-          {(
-            [
-              ["Juros dos contratos", formatCentavos(total.jurosCentavos)],
-              ["Total a receber", formatCentavos(total.totalCentavos)],
-              ["Contratos", String(total.contratos)],
-            ] as const
-          ).map(([rotulo, valor]) => (
-            <div key={rotulo} className="flex items-baseline justify-between gap-3">
-              <dt className="text-white/80">{rotulo}</dt>
-              <dd className="font-bold text-[#f0d45a]">{valor}</dd>
-            </div>
-          ))}
+          <div className="flex items-baseline justify-between gap-3">
+            <dt className="text-white/80">Juros dos contratos</dt>
+            <dd className="font-bold text-[#f0d45a]">{formatCentavos(total.jurosCentavos)}</dd>
+          </div>
+          <div className="flex items-baseline justify-between gap-3">
+            <dt className="text-white/80">Já recebido</dt>
+            <dd className="font-bold text-[#f0d45a]">{formatCentavos(total.recebidoCentavos)}</dd>
+          </div>
+          <div className="-mx-2 my-1 flex items-baseline justify-between gap-3 rounded-xl bg-white/10 px-2 py-1.5">
+            <dt className="font-bold text-white">Falta receber</dt>
+            <dd className="font-heading text-xl font-black whitespace-nowrap text-[#f0d45a]">{formatCentavos(total.faltaReceberCentavos)}</dd>
+          </div>
+          <div className="flex items-baseline justify-between gap-3">
+            <dt className="text-white/80">Contratos</dt>
+            <dd className="font-bold text-[#f0d45a]">{total.contratos}</dd>
+          </div>
         </dl>
+        <p className="num mt-2 text-xs text-white/60">
+          Falta receber: só o que falta pagar das parcelas em aberto dos contratos ativos, sem juros de atraso; diminui a cada
+          baixa. Total dos contratos (emprestado + juros): {formatCentavos(total.totalCentavos)}.
+        </p>
       </section>
 
       <section className="grid grid-cols-2 gap-3">
@@ -153,20 +161,24 @@ export default async function VendasPage({ searchParams }: PageProps<"/vendas">)
               Fechar
             </Link>
           </div>
+          <div className="flex items-baseline justify-between gap-3 rounded-xl bg-accent px-3 py-2">
+            <p className="text-sm font-bold">Falta receber</p>
+            <p className="num font-heading text-xl font-black whitespace-nowrap text-primary">{formatCentavos(mesEscolhido.faltaReceberCentavos)}</p>
+          </div>
           <dl className="num grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
             {(
               [
                 ["Emprestado", formatCentavos(mesEscolhido.emprestadoCentavos)],
                 ["Juros", formatCentavos(mesEscolhido.jurosCentavos)],
-                ["Total a receber", formatCentavos(mesEscolhido.totalCentavos)],
                 ["Já recebido", formatCentavos(mesEscolhido.recebidoCentavos)],
+                ["Total dos contratos", formatCentavos(mesEscolhido.totalCentavos)],
                 ["Ticket médio", formatCentavos(mesEscolhido.ticketMedioCentavos)],
                 ["Taxa média", `${formatPercentual(mesEscolhido.taxaMedia)} a.m.`],
               ] as const
             ).map(([rotulo, valor]) => (
               <div key={rotulo}>
                 <dt className="text-xs text-muted-foreground">{rotulo}</dt>
-                <dd className="font-bold">{valor}</dd>
+                <dd className={cn("font-bold", rotulo === "Total dos contratos" && "font-semibold text-muted-foreground")}>{valor}</dd>
               </div>
             ))}
           </dl>
@@ -217,6 +229,11 @@ export default async function VendasPage({ searchParams }: PageProps<"/vendas">)
                         Juros <b>{formatCentavos(parte.jurosCentavos)}</b>
                         {renegociacao && " (parte do dinheiro novo)"} · {formatPercentual(e.taxa_percentual / 100)} ao mês
                       </p>
+                      {e.status === "ativo" && (
+                        <p className="num text-sm">
+                          Falta receber <b className="text-primary">{formatCentavos(parte.faltaReceberCentavos)}</b>
+                        </p>
+                      )}
                     </Link>
                   </li>
                 );
@@ -272,7 +289,9 @@ export default async function VendasPage({ searchParams }: PageProps<"/vendas">)
         Conta pela data em que o dinheiro foi entregue. Os juros são os combinados no contrato, sem os juros de atraso.
         Empréstimos cancelados ficam de fora. Numa renegociação, só conta o dinheiro novo que você mandou ao
         cliente, com a parte dos juros do novo contrato que cabe a ele; o saldo antigo já contou no mês do
-        contrato original. Renegociação sem dinheiro novo fica de fora.
+        contrato original. Renegociação sem dinheiro novo fica de fora. &ldquo;Falta receber&rdquo; é o que ainda falta pagar
+        das parcelas em aberto dos contratos ativos, sem juros de atraso: diminui a cada baixa. Contrato quitado não tem
+        nada a receber, e o que sobrou de um renegociado é cobrado no contrato novo.
       </p>
     </div>
   );

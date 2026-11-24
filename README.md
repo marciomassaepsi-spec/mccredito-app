@@ -122,11 +122,18 @@ novo para ele.
 No **Painel**, o cartão **Vendido em (mês)** abre a tela **Vendas**: quanto você emprestou em cada mês
 (pela data em que o dinheiro foi entregue) e quanto de juros esses contratos geram. Mostra o total
 do período (6, 12 ou 24 meses), a comparação com o mês anterior, ticket médio, taxa média e um
-gráfico com o valor emprestado e os juros de cada mês. Toque num mês para ver os contratos dele,
-quanto já foi recebido e quanto rende no total. Os juros são os combinados no contrato, sem os juros
+gráfico com o valor emprestado e os juros de cada mês. O cartão do topo mostra **Juros dos
+contratos**, **Já recebido**, **Falta receber** (em destaque) e **Contratos**. **Falta receber** é só o
+que ainda falta pagar desses contratos: valor − pago das parcelas em aberto (a vencer ou pagas em
+parte) dos empréstimos **ativos**, sem juros de atraso; diminui a cada baixa. Contrato quitado não tem
+nada a receber, e o que sobrou de um renegociado passa a ser cobrado no contrato novo. O **Total dos
+contratos** (emprestado + juros, que não muda com pagamento) aparece em letra pequena embaixo. Toque
+num mês para ver os contratos dele, com o mesmo **Falta receber** do mês e de cada contrato ativo,
+quanto já foi recebido e o total dos contratos. Os juros são os combinados no contrato, sem os juros
 de atraso. Empréstimos cancelados não contam como venda. Uma renegociação só conta o **dinheiro novo** que
 você mandou ao cliente, no mês da renegociação, com a parte dos juros do novo contrato que cabe a
-ele (juros × dinheiro novo ÷ valor do novo contrato); o saldo antigo já contou no mês do contrato
+ele (juros × dinheiro novo ÷ valor do novo contrato; o já recebido e o que falta receber seguem a
+mesma proporção); o saldo antigo já contou no mês do contrato
 original. Renegociação sem dinheiro novo fica de fora. No detalhe do mês ela aparece com a etiqueta
 **Renegociação** e o valor do dinheiro novo.
 
@@ -373,8 +380,9 @@ npm run typecheck && npm run lint
   parcelas. Pelo valor da parcela, `montarParcelasPelaParcela` acha a taxa da Price e usa a parcela
   exata em todas, inclusive na última (a sobra do arredondamento fica nos juros dela).
 - `src/lib/vendas.ts` agrupa as vendas por mês da liberação (emprestado, juros do contrato,
-  recebido, ticket e taxa média ponderada; renegociação conta só o dinheiro novo, em `parteVendida`);
-  `src/lib/vendas-dados.ts` faz a consulta; `/vendas` mostra o gráfico de colunas empilhadas
+  recebido, falta receber, ticket e taxa média ponderada; renegociação conta só o dinheiro novo, em
+  `parteVendida`; o que falta de cada contrato sai de `faltaReceberDoContrato`);
+  `src/lib/vendas-dados.ts` faz a consulta de página em página (`lerTodas`); `/vendas` mostra o gráfico de colunas empilhadas
   (`GraficoVendas`) e o detalhe do mês em `?mes=aaaa-mm`.
 - `src/lib/contrato.ts` + `contrato-pdf.ts` modelo com `{{variaveis}}` e geração do PDF (pdf-lib).
   O credor é a empresa (`nome_empresa` + `cnpj_empresa`). Ao mudar o `MODELO_PADRAO`, guarde o texto
