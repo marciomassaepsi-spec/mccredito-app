@@ -7,6 +7,7 @@ import { hojeISO } from "@/lib/format";
 import { conferirLinha, lerLinhas, paraFuncaoSQL, type LinhaPlanilha } from "@/lib/importacao";
 import { lerArquivoPlanilha } from "@/lib/planilha";
 import { requireUser } from "@/lib/supabase/server";
+import { atualizarTelas } from "@/lib/telas";
 
 import { INICIO_IMPORTACAO, MAX_LINHAS, type EstadoImportacao } from "./estado";
 
@@ -82,6 +83,8 @@ export async function importarContratos(_anterior: EstadoImportacao, formData: F
   const { supabase } = await requireUser();
   const { data, error } = await supabase.rpc("importar_contratos", { p_linhas: contratos.map(paraFuncaoSQL) });
   if (error) return falhou(mensagemDoBanco(error));
+  // Contratos novos mudam a carteira, as cobranças e as vendas
+  atualizarTelas();
 
   const resultado = resultadoSchema.safeParse(data);
   if (!resultado.success) return falhou("O banco respondeu algo inesperado. Confira a lista de empréstimos.");

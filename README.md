@@ -306,6 +306,29 @@ não acontece.
 **Saiu uma atualização do app com arquivo de banco novo.** Rode só o arquivo novo da pasta
 `supabase/migrations` no SQL Editor, antes ou logo depois de a Vercel publicar a versão nova.
 
+**Dei baixa num pagamento e o valor do Painel não mudou.** Corrigido nesta versão: o app mostrava
+a tela guardada quando você voltava pelo botão "voltar" do celular, e com mais de 1000 parcelas em
+aberto o Painel somava só uma parte delas. Agora, depois de qualquer pagamento, estorno, quitação,
+renegociação ou mudança de vencimento, todas as telas buscam os valores de novo. Se mesmo assim
+algum número parecer errado (uma parcela com pagamento que continua em aberto, ou um empréstimo todo
+pago que continua ativo), rode o reparo abaixo.
+
+**Reparo: recalcular parcelas.** O arquivo
+[`supabase/reparos/recalcular_parcelas.sql`](supabase/reparos/recalcular_parcelas.sql) refaz o que
+foi pago, a situação e a data de quitação de **todas** as parcelas a partir dos pagamentos (os
+estornados não contam), e ajusta os empréstimos: ativo sem parcela em aberto vira quitado; quitado
+com parcela em aberto volta a ativo. Cancelados e renegociados não mudam, e os pagamentos nunca são
+alterados. Para rodar:
+
+1. No Supabase, abra **SQL Editor → New query**.
+2. Copie todo o conteúdo do arquivo, cole e clique em **Run**. Leva poucos segundos.
+3. Confira o resultado: uma linha com quantas parcelas e empréstimos foram corrigidos, quanto falta
+   receber antes e depois, e o total de pagamentos. Não aparece nenhum dado de cliente.
+
+Pode rodar quantas vezes quiser: se estiver tudo certo, o resultado diz "Tudo certo: nada precisou
+ser corrigido". Ele roda numa transação só (se der erro, nada é gravado) e cada correção fica no
+Histórico de alterações. Não é uma migration: não precisa rodar depois de atualizar o app.
+
 **Backup.** O plano gratuito do Supabase não guarda cópias que você possa baixar. Em
 **Configurações → Exportar e backup**, o botão **Baixar backup** gera uma planilha do Excel com
 clientes, empréstimos, parcelas, pagamentos e contatos. Faça isso toda semana e guarde o arquivo num
@@ -358,6 +381,14 @@ npm run typecheck && npm run lint
   anterior em `MODELOS_PADRAO_ANTERIORES`: quem salvou um padrão antigo sem mexer passa a usar o novo.
 - Arquivos ficam no bucket privado `documentos`; fotos são reduzidas no navegador antes do envio
   (limite de 4,5 MB da Vercel) e abertas por `/arquivos/...`, que gera um link assinado de 2 minutos.
+- Consultas que podem passar de 1000 linhas (Painel e exportação) usam `lerTodas`
+  (`src/lib/paginar.ts`), que pede de página em página com ordem estável: o Supabase corta cada
+  resposta no "Max rows" da API (1000) sem avisar. Uma consulta que falha mostra o aviso
+  `AvisoBanco` em vez de um total pela metade.
+- Toda Server Action que muda valores chama `atualizarTelas()` (`src/lib/telas.ts`,
+  `revalidatePath("/", "layout")`) antes do `redirect`: sem isso, o botão voltar do celular mostrava
+  o Painel guardado no cache do navegador, com o valor de antes do pagamento.
+- `supabase/reparos/` scripts de manutenção para rodar à mão no SQL Editor (não são migrations).
 - `src/lib/painel.ts` indicadores do painel (carteira, atraso com juros por faixa, recebido × previsto por
   mês, juros recebidos). `src/components/app/graficos.tsx` desenha os gráficos em HTML, com legenda,
   dica ao tocar e tabela com os números.

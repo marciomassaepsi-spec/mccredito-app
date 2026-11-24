@@ -69,3 +69,26 @@ export function mensagemDoBanco(erro: { code?: string; message?: string } | null
   if (erro.code === "23503") return "Não dá para apagar: há registros ligados a este.";
   return "Não foi possível salvar agora. Confira sua internet e tente de novo.";
 }
+
+/** Problema numa tela que lê o banco: "banco" = falta rodar migration; "falha" = outro erro. */
+export type ProblemaBanco = "banco" | "falha" | null;
+
+/**
+ * Junta os erros das consultas de uma tela. Uma consulta que falha devolve
+ * `data` vazio: sem este aviso, a tela mostraria totais pela metade como se
+ * estivessem certos. Banco desatualizado tem prioridade, porque diz o que fazer.
+ */
+export function problemaDasConsultas(erros: Array<{ code?: string } | ProblemaBanco | undefined>): ProblemaBanco {
+  let problema: ProblemaBanco = null;
+  for (const erro of erros) {
+    if (!erro) continue;
+    if (erro === "banco" || (typeof erro === "object" && bancoDesatualizado(erro))) return "banco";
+    problema = "falha";
+  }
+  return problema;
+}
+
+export function textoDoProblema(problema: Exclude<ProblemaBanco, null>): string {
+  if (problema === "banco") return FALTA_ATUALIZAR_BANCO;
+  return "Não foi possível ler tudo do banco agora: os valores desta tela podem estar incompletos. Confira a internet e atualize a tela.";
+}

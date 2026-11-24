@@ -8,6 +8,7 @@ import { errosDoZod, falha, lerFormulario, mensagemDoBanco } from "@/lib/acoes";
 import { planejarEmprestimo } from "@/lib/emprestimos";
 import { parsePercentual, parseReaisParaCentavos } from "@/lib/format";
 import { requireUser } from "@/lib/supabase/server";
+import { atualizarTelas } from "@/lib/telas";
 
 const data = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Escolha a data.");
 
@@ -91,6 +92,7 @@ export async function criarEmprestimo(_anterior: EstadoForm, formData: FormData)
       : await supabase.rpc("criar_emprestimo", { p_emprestimo: emprestimo, p_parcelas: plano.parcelas });
 
   if (error || !id) return falha(valores, mensagemDoBanco(error));
+  atualizarTelas();
   redirect(`/emprestimos/${id}`);
 }
 
@@ -104,5 +106,6 @@ export async function cancelarEmprestimo(_anterior: EstadoForm, formData: FormDa
   const { supabase } = await requireUser();
   const { error } = await supabase.rpc("cancelar_emprestimo", { p_id: id.data, p_motivo: motivo });
   if (error) return falha(valores, mensagemDoBanco(error));
+  atualizarTelas();
   redirect(`/emprestimos/${id.data}`);
 }

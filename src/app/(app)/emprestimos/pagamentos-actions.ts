@@ -11,10 +11,12 @@ import { montarVariaveis, preencherModelo } from "@/lib/contrato";
 import { carregarDadosContrato, nomeArquivoContrato } from "@/lib/contrato-dados";
 import { gerarContratoPDF } from "@/lib/contrato-pdf";
 import { hojeISO, parsePercentual, parseReaisParaCentavos } from "@/lib/format";
-import { jurosAtrasoDiario, remarcarVencimentos } from "@/lib/finance";
+import { carregarJurosAtraso } from "@/lib/config-dados";
+import { remarcarVencimentos } from "@/lib/finance";
 import { alocarRecebimento, colunasJurosAtraso, encargosNaData, planoQuitacao } from "@/lib/pagamentos";
 import { detalheRenegociacao, observacaoRenegociacao, planejarRenegociacao, saldoParaRenegociar } from "@/lib/renegociacao";
 import { requireUser } from "@/lib/supabase/server";
+import { atualizarTelas } from "@/lib/telas";
 
 type Supabase = Awaited<ReturnType<typeof requireUser>>["supabase"];
 
@@ -24,12 +26,6 @@ const data = z
   .refine((d) => d <= hojeISO(), "Não pode ser uma data futura.");
 const forma = z.enum(["pix", "dinheiro", "transferencia", "outro"], { error: "Escolha a forma de pagamento." });
 const uuid = z.string().uuid();
-
-/** Juros de atraso por dia das Configurações, em decimal (1% = 0.01). */
-async function jurosDiarioDaConfig(supabase: Supabase) {
-  const { data: c } = await supabase.from("configuracoes").select("juros_atraso_dia_percentual").maybeSingle();
-  return jurosAtrasoDiario(c?.juros_atraso_dia_percentual);
-}
 
 /** Envia o comprovante (se houver). Devolve o caminho, "" sem arquivo, ou um erro. */
 async function enviarComprovante(supabase: Supabase, formData: FormData, emprestimoId: string) {
@@ -82,7 +78,9 @@ export async function registrarPagamento(_anterior: EstadoForm, formData: FormDa
   if (!parcela) return falha(valores, "Parcela não encontrada.");
 
   // Valores sempre recalculados aqui, com a configuração atual
-  const jurosDiario = await jurosDiarioDaConfig(supabase);
+  // Sem conseguir ler a taxa de atraso, não grava: o valor cobrado sairia errado
+  const { jurosDiario, erro: erroConfig } = await carregarJurosAtraso(supabase);
+  if (erroConfig) return falha(valores, mensagemDoBanco(erroConfig));
   const encargos = encargosNaData(parcela, d.pago_em, jurosDiario);
   const alocacao = alocarRecebimento(d.recebido ?? 0, encargos, d.dispensar === "on");
   if (!alocacao.ok) return falha(valores, alocacao.erro, { recebido: alocacao.erro });
@@ -107,6 +105,7 @@ export async function registrarPagamento(_anterior: EstadoForm, formData: FormDa
     await desfazerComprovante(supabase, comprovante.caminho, comprovante.docId);
     return falha(valores, mensagemDoBanco(error));
   }
+  atualizarTelas();
   redirect(`/emprestimos/${d.emprestimo_id}?ok=${alocacao.parcial ? "parcial" : "pago"}`);
 }
 
@@ -124,6 +123,7 @@ export async function estornarPagamento(_anterior: EstadoForm, formData: FormDat
   const { supabase } = await requireUser();
   const { error } = await supabase.rpc("estornar_pagamento", { p_pagamento: pagamento.data, p_motivo: motivo });
   if (error) return falha(valores, mensagemDoBanco(error));
+  atualizarTelas();
   redirect(`/emprestimos/${emprestimo.data}?ok=estorno`);
 }
 
@@ -153,7 +153,9 @@ export async function quitarEmprestimo(_anterior: EstadoForm, formData: FormData
   if (!e || e.status !== "ativo") return falha(valores, "Empréstimo não encontrado ou não está ativo.");
 
   const abertas = e.parcelas.filter((p) => p.status === "a_vencer" || p.status === "paga_parcial");
-  const jurosDiario = await jurosDiarioDaConfig(supabase);
+  // Sem conseguir ler a taxa de atraso, não grava: o valor cobrado sairia errado
+  const { jurosDiario, erro: erroConfig } = await carregarJurosAtraso(supabase);
+  if (erroConfig) return falha(valores, mensagemDoBanco(erroConfig));
   const plano = planoQuitacao(abertas, Number(e.taxa_percentual) / 100, d.pago_em, jurosDiario, d.dispensar === "on");
 
   const comprovante = await enviarComprovante(supabase, formData, d.emprestimo_id);
@@ -176,6 +178,7 @@ export async function quitarEmprestimo(_anterior: EstadoForm, formData: FormData
     await desfazerComprovante(supabase, comprovante.caminho, comprovante.docId);
     return falha(valores, mensagemDoBanco(error));
   }
+  atualizarTelas();
   redirect(`/emprestimos/${e.id}?ok=quitado`);
 }
 
@@ -235,7 +238,9 @@ export async function renegociarEmprestimo(_anterior: EstadoForm, formData: Form
   }
 
   // Tudo recalculado aqui, com as parcelas e a configuração atuais
-  const jurosDiario = await jurosDiarioDaConfig(supabase);
+  // Sem conseguir ler a taxa de atraso, não grava: o valor cobrado sairia errado
+  const { jurosDiario, erro: erroConfig } = await carregarJurosAtraso(supabase);
+  if (erroConfig) return falha(valores, mensagemDoBanco(erroConfig));
   const saldo = saldoParaRenegociar(antigo.parcelas, d.liberado_em, jurosDiario);
   const r = planejarRenegociacao({
     saldo,
@@ -274,6 +279,7 @@ export async function renegociarEmprestimo(_anterior: EstadoForm, formData: Form
     p_observacao: noAntigo,
   });
   if (error || !novoId) return falha(valores, mensagemDoBanco(error));
+  atualizarTelas();
   redirect(`/emprestimos/${novoId}?ok=renegociado`);
 }
 
@@ -320,6 +326,7 @@ export async function alterarVencimento(_anterior: EstadoForm, formData: FormDat
     p_observacao: d.observacao,
   });
   if (error) return falha(valores, mensagemDoBanco(error));
+  atualizarTelas();
   redirect(`/emprestimos/${e.id}?ok=vencimento`);
 }
 

@@ -1,9 +1,12 @@
 import { Calculator, ChevronRight, Download, FileText, Megaphone, UserPlus } from "lucide-react";
 import Link from "next/link";
 
+import { AvisoBanco } from "@/components/app/aviso-banco";
 import { GraficoAtraso, GraficoMensal } from "@/components/app/graficos";
+import { problemaDasConsultas } from "@/lib/acoes";
 import { jurosAtrasoDiario } from "@/lib/finance";
 import { formatCentavos, formatDataExtenso, formatPercentual, hojeISO } from "@/lib/format";
+import { lerTodas } from "@/lib/paginar";
 import { calcularIndicadores, ultimosMeses } from "@/lib/painel";
 import { requireUser } from "@/lib/supabase/server";
 import { ehVenda, resumir } from "@/lib/vendas";
@@ -34,36 +37,51 @@ export default async function InicioPage() {
   const fim = meses[meses.length - 1].fim;
 
   const mesAtualJanela = meses[meses.length - 1];
-  const [{ data: ativos }, { data: abertas }, { data: previstas }, { data: pagamentos }, { data: config }, vendasMes] = await Promise.all([
-    supabase.from("emprestimos").select("valor_centavos").eq("status", "ativo"),
-    supabase
-      .from("parcelas")
-      .select("vencimento, valor_centavos, pago_centavos, emprestimos!inner(status)")
-      .in("status", ["a_vencer", "paga_parcial"])
-      .eq("emprestimos.status", "ativo"),
-    supabase
-      .from("parcelas")
-      .select("vencimento, valor_centavos")
-      .neq("status", "cancelada")
-      .gte("vencimento", inicio)
-      .lte("vencimento", fim),
-    supabase
-      .from("pagamentos")
-      .select("pago_em, valor_centavos, multa_centavos, mora_centavos, desconto_centavos, parcelas(valor_centavos, juros_centavos)")
-      .eq("estornado", false)
-      .gte("pago_em", inicio)
-      .lte("pago_em", fim),
+  // Lidas de página em página: o Supabase corta cada consulta em 1000 linhas
+  // sem avisar, e a carteira saía somando só uma parte das parcelas.
+  const [ativos, abertas, previstas, pagamentos, { data: config, error: erroConfig }, vendasMes] = await Promise.all([
+    lerTodas((de, ate) => supabase.from("emprestimos").select("valor_centavos").eq("status", "ativo").order("id").range(de, ate)),
+    lerTodas((de, ate) =>
+      supabase
+        .from("parcelas")
+        .select("vencimento, valor_centavos, pago_centavos, emprestimos!inner(status)")
+        .in("status", ["a_vencer", "paga_parcial"])
+        .eq("emprestimos.status", "ativo")
+        .order("id")
+        .range(de, ate),
+    ),
+    lerTodas((de, ate) =>
+      supabase
+        .from("parcelas")
+        .select("vencimento, valor_centavos")
+        .neq("status", "cancelada")
+        .gte("vencimento", inicio)
+        .lte("vencimento", fim)
+        .order("id")
+        .range(de, ate),
+    ),
+    lerTodas((de, ate) =>
+      supabase
+        .from("pagamentos")
+        .select("pago_em, valor_centavos, multa_centavos, mora_centavos, desconto_centavos, parcelas(valor_centavos, juros_centavos)")
+        .eq("estornado", false)
+        .gte("pago_em", inicio)
+        .lte("pago_em", fim)
+        .order("id")
+        .range(de, ate),
+    ),
     supabase.from("configuracoes").select("limite_contratos_ativos, juros_atraso_dia_percentual").maybeSingle(),
     carregarVendas(supabase, mesAtualJanela.inicio, mesAtualJanela.fim),
   ]);
   const vendas = resumir(vendasMes.emprestimos.filter(ehVenda));
+  const problema = problemaDasConsultas([ativos.error, abertas.error, previstas.error, pagamentos.error, erroConfig, vendasMes.erro]);
 
   const ind = calcularIndicadores({
     hoje,
-    abertas: abertas ?? [],
-    previstas: previstas ?? [],
-    pagamentos: pagamentos ?? [],
-    valoresAtivos: (ativos ?? []).map((a) => a.valor_centavos),
+    abertas: abertas.data,
+    previstas: previstas.data,
+    pagamentos: pagamentos.data,
+    valoresAtivos: ativos.data.map((a) => a.valor_centavos),
     jurosDiario: jurosAtrasoDiario(config?.juros_atraso_dia_percentual),
   });
   const limite = config?.limite_contratos_ativos ?? 150;
@@ -77,9 +95,12 @@ export default async function InicioPage() {
         <h1 className="text-3xl font-black italic text-brand-deep">Painel</h1>
       </section>
 
+      <AvisoBanco problema={problema} />
+
       <section className="rounded-2xl bg-brand-deep p-5 text-white">
-        <p className="text-sm font-bold text-white/75">Carteira ativa (falta receber)</p>
+        <p className="text-sm font-bold text-white/75">Falta receber da carteira ativa</p>
         <p className="font-heading text-[clamp(2rem,10.5vw,3rem)] leading-tight font-black whitespace-nowrap">{formatCentavos(ind.carteiraCentavos)}</p>
+        <p className="text-xs text-white/70">Só o que falta pagar das parcelas em aberto, sem juros de atraso. O que já foi recebido não entra.</p>
         <p className="mt-1 text-sm text-white/85">
           {ind.atrasadoCentavos > 0
             ? `${formatCentavos(ind.atrasadoCentavos)} atrasado, com juros de atraso · ${formatPercentual(ind.inadimplencia, 1)} da carteira`

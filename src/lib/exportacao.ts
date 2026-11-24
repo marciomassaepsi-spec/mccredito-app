@@ -5,6 +5,7 @@ import ExcelJS from "exceljs";
 
 import { gerarCSV, type Coluna, type QualquerTabela } from "./csv";
 import { formatCPF, formatData, formatTelefone } from "./format";
+import { lerTodas } from "./paginar";
 import type { Database } from "./supabase/database.types";
 
 type Tabela<T> = { aba: string; arquivo: string; colunas: Coluna<T>[]; linhas: T[] };
@@ -27,24 +28,45 @@ export type TabelaExportavel = (typeof TABELAS_EXPORTAVEIS)[number];
 
 /** Lê tudo o que vai para a exportação. Respeita as regras de acesso de quem pediu. */
 export async function carregarTabelas(supabase: SupabaseClient<Database>) {
+  // De página em página: o Supabase devolve no máximo 1000 linhas por consulta,
+  // e um backup cortado sem aviso é pior do que nenhum. O "id" no fim da ordem
+  // deixa a ordem estável entre as páginas.
   const [clientes, emprestimos, parcelas, pagamentos, contatos] = await Promise.all([
-    supabase.from("clientes").select("id, nome, cpf, whatsapp, endereco, observacoes, consentimento_lgpd_em, criado_em").order("nome"),
-    supabase
-      .from("emprestimos")
-      .select("id, valor_centavos, taxa_percentual, sistema, qtd_parcelas, periodicidade, liberado_em, primeiro_vencimento, status, renegociado_de, observacoes, clientes(nome, cpf)")
-      .order("liberado_em"),
-    supabase
-      .from("parcelas")
-      .select("emprestimo_id, numero, vencimento, valor_centavos, juros_centavos, amortizacao_centavos, saldo_devedor_centavos, pago_centavos, status, quitada_em, emprestimos(clientes(nome))")
-      .order("vencimento"),
-    supabase
-      .from("pagamentos")
-      .select("id, pago_em, valor_centavos, multa_centavos, mora_centavos, desconto_centavos, forma, estornado, estorno_motivo, observacoes, parcelas(numero, emprestimo_id, emprestimos(clientes(nome)))")
-      .order("pago_em"),
-    supabase
-      .from("contatos_cobranca")
-      .select("criado_em, tipo, resultado, promessa_para, observacoes, clientes(nome), parcelas(numero)")
-      .order("criado_em"),
+    lerTodas((de, ate) =>
+      supabase.from("clientes").select("id, nome, cpf, whatsapp, endereco, observacoes, consentimento_lgpd_em, criado_em").order("nome").order("id").range(de, ate),
+    ),
+    lerTodas((de, ate) =>
+      supabase
+        .from("emprestimos")
+        .select("id, valor_centavos, taxa_percentual, sistema, qtd_parcelas, periodicidade, liberado_em, primeiro_vencimento, status, renegociado_de, observacoes, clientes(nome, cpf)")
+        .order("liberado_em")
+        .order("id")
+        .range(de, ate),
+    ),
+    lerTodas((de, ate) =>
+      supabase
+        .from("parcelas")
+        .select("emprestimo_id, numero, vencimento, valor_centavos, juros_centavos, amortizacao_centavos, saldo_devedor_centavos, pago_centavos, status, quitada_em, emprestimos(clientes(nome))")
+        .order("vencimento")
+        .order("id")
+        .range(de, ate),
+    ),
+    lerTodas((de, ate) =>
+      supabase
+        .from("pagamentos")
+        .select("id, pago_em, valor_centavos, multa_centavos, mora_centavos, desconto_centavos, forma, estornado, estorno_motivo, observacoes, parcelas(numero, emprestimo_id, emprestimos(clientes(nome)))")
+        .order("pago_em")
+        .order("id")
+        .range(de, ate),
+    ),
+    lerTodas((de, ate) =>
+      supabase
+        .from("contatos_cobranca")
+        .select("criado_em, tipo, resultado, promessa_para, observacoes, clientes(nome), parcelas(numero)")
+        .order("criado_em")
+        .order("id")
+        .range(de, ate),
+    ),
   ]);
   const erro = [clientes, emprestimos, parcelas, pagamentos, contatos].find((r) => r.error)?.error;
   if (erro) throw new Error(erro.message);
@@ -53,7 +75,7 @@ export async function carregarTabelas(supabase: SupabaseClient<Database>) {
     clientes: {
       aba: "Clientes",
       arquivo: "clientes",
-      linhas: clientes.data ?? [],
+      linhas: clientes.data,
       colunas: [
         { titulo: "Nome", tipo: "texto", valor: (c) => c.nome },
         { titulo: "CPF", tipo: "texto", valor: (c) => formatCPF(c.cpf) },
@@ -68,7 +90,7 @@ export async function carregarTabelas(supabase: SupabaseClient<Database>) {
     emprestimos: {
       aba: "Empréstimos",
       arquivo: "emprestimos",
-      linhas: emprestimos.data ?? [],
+      linhas: emprestimos.data,
       colunas: [
         { titulo: "Cliente", tipo: "texto", valor: (e) => e.clientes?.nome ?? "" },
         { titulo: "CPF", tipo: "texto", valor: (e) => (e.clientes ? formatCPF(e.clientes.cpf) : "") },
@@ -88,7 +110,7 @@ export async function carregarTabelas(supabase: SupabaseClient<Database>) {
     parcelas: {
       aba: "Parcelas",
       arquivo: "parcelas",
-      linhas: parcelas.data ?? [],
+      linhas: parcelas.data,
       colunas: [
         { titulo: "Cliente", tipo: "texto", valor: (p) => p.emprestimos?.clientes?.nome ?? "" },
         { titulo: "Parcela", tipo: "numero", valor: (p) => p.numero },
@@ -106,7 +128,7 @@ export async function carregarTabelas(supabase: SupabaseClient<Database>) {
     pagamentos: {
       aba: "Pagamentos",
       arquivo: "pagamentos",
-      linhas: pagamentos.data ?? [],
+      linhas: pagamentos.data,
       colunas: [
         { titulo: "Data", tipo: "data", valor: (p) => p.pago_em },
         { titulo: "Cliente", tipo: "texto", valor: (p) => p.parcelas?.emprestimos?.clientes?.nome ?? "" },
@@ -130,7 +152,7 @@ export async function carregarTabelas(supabase: SupabaseClient<Database>) {
     contatos: {
       aba: "Contatos",
       arquivo: "contatos-de-cobranca",
-      linhas: contatos.data ?? [],
+      linhas: contatos.data,
       colunas: [
         { titulo: "Data", tipo: "data", valor: (c) => c.criado_em.slice(0, 10) },
         { titulo: "Cliente", tipo: "texto", valor: (c) => c.clientes?.nome ?? "" },

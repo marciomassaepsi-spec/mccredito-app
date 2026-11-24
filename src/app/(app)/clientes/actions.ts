@@ -8,6 +8,7 @@ import { errosDoZod, falha, lerFormulario, mensagemDoBanco } from "@/lib/acoes";
 import { BUCKET } from "@/lib/arquivos";
 import { cpfValido, normalizarTelefone } from "@/lib/format";
 import { requireUser } from "@/lib/supabase/server";
+import { atualizarTelas } from "@/lib/telas";
 
 const clienteSchema = z.object({
   id: z.string().uuid().optional().or(z.literal("")),
@@ -57,6 +58,7 @@ export async function salvarCliente(_anterior: EstadoForm, formData: FormData): 
     clienteId = data.id;
   }
 
+  atualizarTelas();
   if (voltar === "emprestimo") redirect(`/emprestimos/novo?cliente=${clienteId}`);
   redirect(`/clientes/${clienteId}`);
 }
@@ -98,5 +100,6 @@ export async function excluirDadosCliente(_anterior: EstadoForm, formData: FormD
   ];
   if (caminhos.length) await supabase.storage.from(BUCKET).remove([...new Set(caminhos)]);
 
+  atualizarTelas();
   redirect(resultado === "excluido" ? "/clientes?ok=excluido" : `/clientes/${id.data}?ok=anonimizado`);
 }

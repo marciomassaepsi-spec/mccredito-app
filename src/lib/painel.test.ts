@@ -106,3 +106,24 @@ describe("eixo", () => {
     expect(marcasEixo(0)).toEqual([0]);
   });
 });
+
+describe("carteira: só o que falta receber", () => {
+  const base = { hoje: "2026-10-05", previstas: [], pagamentos: [], valoresAtivos: [100000], jurosDiario: 0.01 };
+  const abertas = [
+    { vencimento: "2026-11-05", valor_centavos: 25000, pago_centavos: 0 },
+    { vencimento: "2026-12-05", valor_centavos: 25000, pago_centavos: 0 },
+  ];
+
+  it("um pagamento parcial diminui a carteira exatamente no valor abatido", () => {
+    const antes = calcularIndicadores({ ...base, abertas }).carteiraCentavos;
+    const depois = calcularIndicadores({ ...base, abertas: [{ ...abertas[0], pago_centavos: 10000 }, abertas[1]] }).carteiraCentavos;
+    expect(antes).toBe(50000);
+    expect(depois).toBe(40000);
+  });
+
+  it("parcela paga inteira sai da carteira; o que já foi pago nunca soma", () => {
+    // paga: o banco a tira das "em aberto"; paga a mais por engano não fica negativa
+    expect(calcularIndicadores({ ...base, abertas: [abertas[1]] }).carteiraCentavos).toBe(25000);
+    expect(calcularIndicadores({ ...base, abertas: [{ ...abertas[0], pago_centavos: 30000 }] }).carteiraCentavos).toBe(0);
+  });
+});

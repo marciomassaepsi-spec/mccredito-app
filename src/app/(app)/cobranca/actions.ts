@@ -1,12 +1,12 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import type { EstadoForm } from "@/components/app/form";
 import { errosDoZod, falha, lerFormulario, mensagemDoBanco } from "@/lib/acoes";
 import { hojeISO } from "@/lib/format";
 import { requireUser } from "@/lib/supabase/server";
+import { atualizarTelas } from "@/lib/telas";
 
 const contatoSchema = z
   .object({
@@ -45,7 +45,6 @@ export async function registrarContato(_anterior: EstadoForm, formData: FormData
   });
   if (error) return falha(valores, mensagemDoBanco(error));
 
-  revalidatePath("/cobranca");
-  revalidatePath(`/clientes/${d.cliente_id}`);
+  atualizarTelas();
   return { ok: true, mensagem: "Contato registrado.", erros: {}, valores: {} };
 }
